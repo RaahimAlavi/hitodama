@@ -23,9 +23,11 @@ function setWindowBounds(width, height) {
   if (!mainWindow) return;
   const primaryDisplay = screen.getPrimaryDisplay();
   const { bounds } = primaryDisplay;
-  const targetX = bounds.x + Math.round((bounds.width - width) / 2);
+  const targetW = Math.round(width || 280);
+  const targetH = Math.round(height || 38);
+  const targetX = bounds.x + Math.round((bounds.width - targetW) / 2);
   const targetY = bounds.y;
-  mainWindow.setBounds({ x: targetX, y: targetY, width, height });
+  mainWindow.setBounds({ x: targetX, y: targetY, width: targetW, height: targetH });
 }
 
 function createWindow() {
@@ -60,34 +62,65 @@ function createWindow() {
 
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
 
+  // Hardcore elimination of any Windows Chromium scrollbars
+  const killScrollbarsCSS = `
+    html, body, #root, * {
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+    }
+    ::-webkit-scrollbar {
+      display: none !important;
+      width: 0px !important;
+      height: 0px !important;
+    }
+    html, body {
+      background: transparent !important;
+      overflow: hidden !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+  `;
+
+  mainWindow.webContents.on('dom-ready', () => {
+    mainWindow.webContents.insertCSS(killScrollbarsCSS).catch(() => {});
+    mainWindow.webContents.executeJavaScript(`
+      document.documentElement.classList.add('desktop-mode');
+      document.body.classList.add('desktop-mode');
+    `).catch(() => {});
+  });
+
   const devUrl = 'http://localhost:5173/?mode=desktop';
   const prodPath = path.join(__dirname, '../dist/index.html');
 
-  if (isDev) {
+  // Seamlessly check if Vite dev server is running
+  const http = require('http');
+  const probe = http.get('http://localhost:5173', (res) => {
     mainWindow.loadURL(devUrl).catch(() => {
-      mainWindow.loadFile(prodPath, { query: { mode: 'desktop' } });
+      mainWindow.loadFile(prodPath, { search: '?mode=desktop' });
     });
-  } else {
-    mainWindow.loadFile(prodPath, { query: { mode: 'desktop' } });
-  }
+  });
+  probe.on('error', () => {
+    mainWindow.loadFile(prodPath, { search: '?mode=desktop' });
+  });
+  probe.setTimeout(350, () => {
+    probe.destroy();
+    mainWindow.loadFile(prodPath, { search: '?mode=desktop' });
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
-// Window sizing & mode transitions:
-// 'collapsed' / 'tucked' -> 280 x 38
-// 'listening'           -> 380 x 48
-// 'expanded'            -> 740 x (tabHeight)
-ipcMain.on('set-window-mode', (event, { mode, height = 440 }) => {
+// Window sizing & mode transitions
+ipcMain.on('set-window-mode', (event, { mode, width = 640, height = 390 }) => {
   if (!mainWindow) return;
   if (mode === 'tucked' || mode === 'collapsed') {
     setWindowBounds(280, 38);
   } else if (mode === 'listening') {
     setWindowBounds(380, 48);
   } else if (mode === 'expanded') {
-    setWindowBounds(740, height);
+    setWindowBounds(width, height);
   } else {
     setWindowBounds(280, 38);
   }
@@ -97,10 +130,10 @@ ipcMain.on('set-window-bounds', (event, { width, height }) => {
   setWindowBounds(width, height);
 });
 
-ipcMain.on('set-expanded', (event, { expanded, height = 440 }) => {
+ipcMain.on('set-expanded', (event, { expanded, width = 640, height = 390 }) => {
   if (!mainWindow) return;
   if (expanded) {
-    setWindowBounds(740, height);
+    setWindowBounds(width, height);
   } else {
     setWindowBounds(280, 38);
   }

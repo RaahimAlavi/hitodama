@@ -24,15 +24,19 @@ import { AccountPage } from './pages/AccountPage';
 import { HitodamaApp } from './desktop/HitodamaApp';
 
 export const App: React.FC = () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const isDesktopMode = urlParams.get('mode') === 'desktop';
+  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const isDesktopMode =
+    urlParams?.get('mode') === 'desktop' ||
+    Boolean(typeof window !== 'undefined' && window.hitodamaAPI);
 
   const [route, setRoute] = useState<string>('/');
   const [currency, setCurrency] = useState<'IN' | 'INTL'>('INTL');
   const [showGate, setShowGate] = useState(false);
 
-  // Initialize Lenis smooth scroll
+  // Initialize Lenis smooth scroll (only on web landing page)
   useEffect(() => {
+    if (isDesktopMode) return;
+
     const lenis = new Lenis({
       duration: 1.2,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
@@ -51,7 +55,7 @@ export const App: React.FC = () => {
       cancelAnimationFrame(animId);
       lenis.destroy();
     };
-  }, []);
+  }, [isDesktopMode]);
 
   // Listen to browser popstate for back/forward
   useEffect(() => {
