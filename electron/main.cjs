@@ -3,6 +3,8 @@ const path = require('path');
 const { exec } = require('child_process');
 const fs = require('fs');
 const os = require('os');
+const http = require('http');
+const https = require('https');
 
 // Prevent multiple instances colliding on cache
 const gotTheLock = app.requestSingleInstanceLock();
@@ -16,33 +18,79 @@ app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
 app.commandLine.appendSwitch('no-sandbox');
 
 let mainWindow = null;
-let isDev = process.env.NODE_ENV !== 'production';
+let hitTestInterval = null;
+let isIgnoringMouse = false;
 
-// Strict display centering using physical display bounds
+// Fixed overlay canvas dimensions (large enough for all tabs including 1000px Wallpaper)
+const CANVAS_WIDTH = 1080;
+const CANVAS_HEIGHT = 660;
+
+// Active logical notch dimensions for dynamic click-through hit-testing
+let activeNotchBounds = {
+  width: 280,
+  height: 38,
+};
+
+// Update active hitbox dimensions without resizing the native OS window (Zero Left-Jump / Zero DWM Lag)
 function setWindowBounds(width, height) {
-  if (!mainWindow) return;
+  activeNotchBounds.width = Math.round(width || 280);
+  activeNotchBounds.height = Math.round(height || 38);
+}
+
+// Re-center the fixed canvas if monitor resolution or display arrangement changes
+function positionCanvasWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
   const primaryDisplay = screen.getPrimaryDisplay();
   const { bounds } = primaryDisplay;
-  const targetW = Math.round(width || 280);
-  const targetH = Math.round(height || 38);
-  const targetX = bounds.x + Math.round((bounds.width - targetW) / 2);
+  const targetX = bounds.x + Math.round((bounds.width - CANVAS_WIDTH) / 2);
   const targetY = bounds.y;
-  mainWindow.setBounds({ x: targetX, y: targetY, width: targetW, height: targetH });
+  mainWindow.setBounds({
+    x: targetX,
+    y: targetY,
+    width: CANVAS_WIDTH,
+    height: CANVAS_HEIGHT,
+  });
+}
+
+// Real-time cursor hit-testing so clicks outside the active notch pass straight through to the desktop
+function startHitTestLoop() {
+  if (hitTestInterval) clearInterval(hitTestInterval);
+
+  hitTestInterval = setInterval(() => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+
+    const cursor = screen.getCursorScreenPoint();
+    const winBounds = mainWindow.getBounds();
+
+    // Active notch is horizontally centered at top: 0 of the fixed canvas window
+    const notchHalfW = activeNotchBounds.width / 2 + 12; // +12px padding for bezel ears
+    const centerX = winBounds.x + CANVAS_WIDTH / 2;
+
+    const insideX = cursor.x >= centerX - notchHalfW && cursor.x <= centerX + notchHalfW;
+    const insideY = cursor.y >= winBounds.y && cursor.y <= winBounds.y + activeNotchBounds.height + 10;
+    const shouldIgnore = !(insideX && insideY);
+
+    if (shouldIgnore !== isIgnoringMouse) {
+      isIgnoringMouse = shouldIgnore;
+      if (shouldIgnore) {
+        mainWindow.setIgnoreMouseEvents(true, { forward: true });
+      } else {
+        mainWindow.setIgnoreMouseEvents(false);
+      }
+    }
+  }, 16);
 }
 
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { bounds } = primaryDisplay;
 
-  // Initial collapsed notch dimensions: 280px x 38px
-  const initialWidth = 280;
-  const initialHeight = 38;
-  const targetX = bounds.x + Math.round((bounds.width - initialWidth) / 2);
+  const targetX = bounds.x + Math.round((bounds.width - CANVAS_WIDTH) / 2);
   const targetY = bounds.y;
 
   mainWindow = new BrowserWindow({
-    width: initialWidth,
-    height: initialHeight,
+    width: CANVAS_WIDTH,
+    height: CANVAS_HEIGHT,
     x: targetX,
     y: targetY,
     frame: false,
@@ -50,6 +98,7 @@ function createWindow() {
     backgroundColor: '#00000000',
     alwaysOnTop: true,
     resizable: false,
+    movable: false,
     hasShadow: false,
     skipTaskbar: false,
     webPreferences: {
@@ -62,7 +111,12 @@ function createWindow() {
 
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
 
-  // Hardcore elimination of any Windows Chromium scrollbars
+  // Start in click-through mode outside the initial 280x38 notch
+  startHitTestLoop();
+
+  screen.on('display-metrics-changed', positionCanvasWindow);
+
+  // Force complete transparency on all root containers and kill scrollbars
   const killScrollbarsCSS = `
     html, body, #root, * {
       scrollbar-width: none !important;
@@ -73,8 +127,9 @@ function createWindow() {
       width: 0px !important;
       height: 0px !important;
     }
-    html, body {
+    html, body, #root, .hitodama-companion-root {
       background: transparent !important;
+      background-color: transparent !important;
       overflow: hidden !important;
       margin: 0 !important;
       padding: 0 !important;
@@ -93,8 +148,7 @@ function createWindow() {
   const prodPath = path.join(__dirname, '../dist/index.html');
 
   // Seamlessly check if Vite dev server is running
-  const http = require('http');
-  const probe = http.get('http://localhost:5173', (res) => {
+  const probe = http.get('http://localhost:5173', () => {
     mainWindow.loadURL(devUrl).catch(() => {
       mainWindow.loadFile(prodPath, { search: '?mode=desktop' });
     });
@@ -108,13 +162,13 @@ function createWindow() {
   });
 
   mainWindow.on('closed', () => {
+    if (hitTestInterval) clearInterval(hitTestInterval);
     mainWindow = null;
   });
 }
 
-// Window sizing & mode transitions
-ipcMain.on('set-window-mode', (event, { mode, width = 640, height = 390 }) => {
-  if (!mainWindow) return;
+// Window sizing & mode transitions (updates active hitbox instantly without OS window resize jitter)
+ipcMain.on('set-window-mode', (event, { mode, width = 640, height = 390 } = {}) => {
   if (mode === 'tucked' || mode === 'collapsed') {
     setWindowBounds(280, 38);
   } else if (mode === 'listening') {
@@ -126,12 +180,14 @@ ipcMain.on('set-window-mode', (event, { mode, width = 640, height = 390 }) => {
   }
 });
 
-ipcMain.on('set-window-bounds', (event, { width, height }) => {
+// Supports both (event, { width, height }) and (event, width, height)
+ipcMain.on('set-window-bounds', (event, arg1, arg2) => {
+  const width = typeof arg1 === 'object' && arg1 !== null ? arg1.width : arg1;
+  const height = typeof arg1 === 'object' && arg1 !== null ? arg1.height : arg2;
   setWindowBounds(width, height);
 });
 
-ipcMain.on('set-expanded', (event, { expanded, width = 640, height = 390 }) => {
-  if (!mainWindow) return;
+ipcMain.on('set-expanded', (event, { expanded, width = 640, height = 390 } = {}) => {
   if (expanded) {
     setWindowBounds(width, height);
   } else {
@@ -226,6 +282,27 @@ ipcMain.handle('power-action', async (event, action) => {
   });
 });
 
+// Real Live CPU Tick Tracker
+let prevCpuInfo = os.cpus();
+function getLiveCpuPercent() {
+  const currentCpus = os.cpus();
+  let idleDiff = 0;
+  let totalDiff = 0;
+
+  for (let i = 0; i < currentCpus.length; i++) {
+    const prev = prevCpuInfo[i] ? prevCpuInfo[i].times : currentCpus[i].times;
+    const curr = currentCpus[i].times;
+    const prevTotal = prev.user + prev.nice + prev.sys + prev.idle + prev.irq;
+    const currTotal = curr.user + curr.nice + curr.sys + curr.idle + curr.irq;
+    idleDiff += curr.idle - prev.idle;
+    totalDiff += currTotal - prevTotal;
+  }
+
+  prevCpuInfo = currentCpus;
+  if (totalDiff <= 0) return 24;
+  return Math.min(100, Math.max(2, Math.round((1 - idleDiff / totalDiff) * 100)));
+}
+
 // System Telemetry Stats
 ipcMain.handle('get-system-stats', async () => {
   const totalMem = os.totalmem();
@@ -240,7 +317,7 @@ ipcMain.handle('get-system-stats', async () => {
 
   return {
     cpu: {
-      percent: 37,
+      percent: getLiveCpuPercent(),
       model: cpuModel,
       speed: cpuSpeed,
       processes: 229,
@@ -269,24 +346,55 @@ ipcMain.handle('get-system-stats', async () => {
   };
 });
 
+// Helper to download remote wallpaper URLs to a local file before calling Win32 SystemParametersInfo
+function resolveWallpaperFile(imagePath) {
+  return new Promise((resolve, reject) => {
+    if (!/^https?:\/\//i.test(imagePath)) {
+      return resolve(imagePath);
+    }
+    const tempWallpaper = path.join(app.getPath('temp'), 'hitodama_wallpaper.jpg');
+    const client = imagePath.startsWith('https') ? https : http;
+    const file = fs.createWriteStream(tempWallpaper);
+
+    client
+      .get(imagePath, (response) => {
+        if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          file.close();
+          return resolveWallpaperFile(response.headers.location).then(resolve).catch(reject);
+        }
+        response.pipe(file);
+        file.on('finish', () => file.close(() => resolve(tempWallpaper)));
+      })
+      .on('error', (err) => {
+        fs.unlink(tempWallpaper, () => {});
+        reject(err);
+      });
+  });
+}
+
 // Windows Wallpaper Setter
 ipcMain.handle('set-wallpaper', async (event, imagePath) => {
-  return new Promise((resolve) => {
-    const psScript = `
-      Add-Type @"
-      using System.Runtime.InteropServices;
-      public class Wallpaper {
-        [DllImport("user32.dll", SetLastError = true)]
-        public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
-      }
+  try {
+    const localFilePath = await resolveWallpaperFile(imagePath);
+    return await new Promise((resolve) => {
+      const psScript = `
+        Add-Type @"
+        using System.Runtime.InteropServices;
+        public class Wallpaper {
+          [DllImport("user32.dll", SetLastError = true)]
+          public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+        }
 "@
-      [Wallpaper]::SystemParametersInfo(0x0014, 0, "${imagePath.replace(/\\/g, '\\\\')}", 0x01 | 0x02)
-    `;
+        [Wallpaper]::SystemParametersInfo(0x0014, 0, "${localFilePath.replace(/\\/g, '\\\\')}", 0x01 -bor 0x02)
+      `;
 
-    exec(`powershell -Command "${psScript.replace(/\n/g, ' ')}"`, (err) => {
-      resolve({ success: !err });
+      exec(`powershell -Command "${psScript.replace(/\n/g, ' ')}"`, (err) => {
+        resolve({ success: !err });
+      });
     });
-  });
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 });
 
 // URL launcher
@@ -371,6 +479,7 @@ app.whenReady().then(() => {
 });
 
 app.on('will-quit', () => {
+  if (hitTestInterval) clearInterval(hitTestInterval);
   globalShortcut.unregisterAll();
 });
 
