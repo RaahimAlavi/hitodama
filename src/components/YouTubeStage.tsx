@@ -32,7 +32,7 @@ export const YouTubeStage: React.FC = () => {
             fontFamily: 'var(--font-body)',
           }}
         >
-          Tell your computer what to search, and Hitodama takes care of the clicks.
+          Tell your computer what to search, and Hito takes care of the clicks.
         </p>
       </div>
 

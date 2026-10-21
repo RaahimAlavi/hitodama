@@ -116,7 +116,7 @@ declare global {
 }
 
 type NavTab = 'Controls' | 'Today' | 'Stats' | 'Clipboard' | 'Apps' | 'Agents' | 'Wallpaper' | 'Power';
-type CompanionSection = 'Hitodama' | 'Shortcuts' | 'Behavior' | 'System' | 'API keys' | 'Your data' | 'Privacy';
+type CompanionSection = 'Hito' | 'Shortcuts' | 'Behavior' | 'System' | 'API keys' | 'Your data' | 'Privacy';
 type LoadoutSlotType = 'Soul' | 'Voice' | 'Personality' | 'Abilities';
 type ControlDropdownType = 'wifi' | 'bluetooth' | 'audio' | 'nightlight' | null;
 
@@ -594,7 +594,7 @@ const LOADOUT_CARDS: LoadoutCardItem[] = [
   {
     id: 'soul_hitodama',
     slot: 'Soul',
-    name: 'Hitodama',
+    name: 'Hito',
     rarity: 'COMMON',
     description: 'The soul as it woke: white-hot core, cold blue halo.',
     cost: 0,
@@ -1584,7 +1584,7 @@ export const HitodamaApp: React.FC = () => {
 
   const [todos, setTodos] = useState<Array<{ id: number; text: string; completed: boolean }>>(() => {
     const saved = localStorage.getItem('hitodama_todos');
-    return saved ? JSON.parse(saved) : [{ id: 1, text: 'Buy Hitodama!', completed: true }];
+    return saved ? JSON.parse(saved) : [{ id: 1, text: 'Buy Hito!', completed: true }];
   });
   const [sparkleBurstId, setSparkleBurstId] = useState<number | null>(null);
   const [sparkleAnimKey, setSparkleAnimKey] = useState<number>(0);
@@ -2852,7 +2852,7 @@ export const HitodamaApp: React.FC = () => {
             header: 'Today · Scheduled Routines',
             title: `${routines.length} Scheduled Task${routines.length !== 1 ? 's' : ''}`,
             subtitle: routines.length > 0 ? routines.map((r) => r.title).join(' · ') : 'No scheduled tasks yet',
-            domain: 'Hitodama Today',
+            domain: 'Hito Today',
           });
         } else if (fc.name === 'open_application') {
           const appName = String(fc.args.appName || '').trim();
@@ -2953,7 +2953,7 @@ export const HitodamaApp: React.FC = () => {
             header: 'Scheduled · Added to Routines',
             title,
             subtitle: timeLabel,
-            domain: 'Hitodama Today',
+            domain: 'Hito Today',
           });
         } else if (fc.name === 'add_todo') {
           setTodos((prev) => [
@@ -5242,7 +5242,7 @@ export const HitodamaApp: React.FC = () => {
                               {routines.length > 0 ? routines[0].timeLabel : 'No scheduled routines'}
                             </div>
                             <div className="companion-truncate" style={{ fontSize: '10.5px', color: '#8A8A93' }}>
-                              {routines.length > 0 ? routines[0].title : 'Ask Hitodama to schedule any task'}
+                              {routines.length > 0 ? routines[0].title : 'Ask Hito to schedule any task'}
                             </div>
                           </div>
                         </div>
@@ -5946,7 +5946,7 @@ export const HitodamaApp: React.FC = () => {
                               alignItems: 'center',
                               gap: '4px',
                             }}
-                            title="Have Hitodama fly across your monitor and point at this on screen"
+                            title="Have Hito fly across your monitor and point at this on screen"
                           >
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                               <circle cx="12" cy="12" r="9" />
@@ -6496,7 +6496,7 @@ export const HitodamaApp: React.FC = () => {
                 <div className="config-sidebar-nav">
                   {(
                     [
-                      { id: 'Hitodama', icon: 'user' },
+                      { id: 'Hito', icon: 'user' },
                       { id: 'Shortcuts', icon: 'keyboard' },
                       { id: 'Behavior', icon: 'sliders' },
                       { id: 'System', icon: 'gear' },
@@ -6553,7 +6553,7 @@ export const HitodamaApp: React.FC = () => {
                         <div className="config-row-copy">
                           <div className="config-row-title">Forget my API key</div>
                           <div className="config-row-desc">
-                            Erases your Gemini key from this PC; Hitodama asks for one again
+                            Erases your Gemini key from this PC; Hito asks for one again
                           </div>
                         </div>
                         <button onClick={handleForgetGeminiKey} className="config-pill-btn">
@@ -6678,9 +6678,9 @@ export const HitodamaApp: React.FC = () => {
                   </>
                 )}
 
-                {settingsSection === 'Hitodama' && (
+                {settingsSection === 'Hito' && (
                   <>
-                    <h2 className="config-panel-heading">Hitodama</h2>
+                    <h2 className="config-panel-heading">Hito</h2>
                     <p className="config-panel-sub">Your soul's identity, active loadout, and onboarding guide.</p>
                     <div className="config-card-group">
                       <div className="config-card-row">
@@ -6730,7 +6730,7 @@ export const HitodamaApp: React.FC = () => {
                     <div className="config-card-group">
                       <div className="config-card-row">
                         <div className="config-row-copy">
-                          <div className="config-row-title">Ask Hitodama</div>
+                          <div className="config-row-title">Ask Hito</div>
                           <div className="config-row-desc">Wake the soul to run commands, toggle dark mode, or search YouTube & Google</div>
                         </div>
                         <button
@@ -6808,7 +6808,7 @@ export const HitodamaApp: React.FC = () => {
                       <div className="config-card-row">
                         <div className="config-row-copy">
                           <div className="config-row-title">Spoken voice responses ({getEquippedCardName('Voice')})</div>
-                          <div className="config-row-desc">Read Hitodama's replies out loud alongside the on-screen pill</div>
+                          <div className="config-row-desc">Read Hito's replies out loud alongside the on-screen pill</div>
                         </div>
                         <button
                           onClick={() => {
@@ -6832,7 +6832,7 @@ export const HitodamaApp: React.FC = () => {
                     <div className="config-card-group">
                       <div className="config-card-row">
                         <div className="config-row-copy">
-                          <div className="config-row-title">Launch Hitodama at Windows startup</div>
+                          <div className="config-row-title">Launch Hito at Windows startup</div>
                           <div className="config-row-desc">Start minimized in your top monitor bezel and system tray</div>
                         </div>
                         <button
@@ -6865,7 +6865,7 @@ export const HitodamaApp: React.FC = () => {
                       <div className="config-card-row">
                         <div className="config-row-copy">
                           <div className="config-row-title">Clear Clipboard History ({clipboardItems.length} items)</div>
-                          <div className="config-row-desc">Removes all unpinned items from Hitodama's local clipboard list</div>
+                          <div className="config-row-desc">Removes all unpinned items from Hito's local clipboard list</div>
                         </div>
                         <button
                           onClick={() => {
@@ -6911,7 +6911,7 @@ export const HitodamaApp: React.FC = () => {
                         <div className="config-row-copy">
                           <div className="config-row-title">Direct-to-Provider Architecture</div>
                           <div className="config-row-desc" style={{ lineHeight: 1.5 }}>
-                            Hitodama runs directly on your PC. Voice, screen lasso captures, and search prompts go straight from your machine to Google Gemini and Tavily using your own keys.
+                            Hito runs directly on your PC. Voice, screen lasso captures, and search prompts go straight from your machine to Google Gemini and Tavily using your own keys.
                           </div>
                         </div>
                       </div>
@@ -7077,12 +7077,12 @@ export const HitodamaApp: React.FC = () => {
           {showConnectModal && (
             <div className="connect-modal-backdrop" onClick={() => setShowConnectModal(false)}>
               <div className="connect-modal-card" onClick={(e) => e.stopPropagation()}>
-                <h3 className="connect-modal-title">Connect Hitodama</h3>
+                <h3 className="connect-modal-title">Connect Hito</h3>
                 <p className="connect-modal-p">
-                  Watch the full video to learn how to create your Gemini API key and add it to Hitodama.
+                  Watch the full video to learn how to create your Gemini API key and add it to Hito.
                 </p>
                 <p className="connect-modal-p secondary">
-                  The key belongs to your own Google account, and Google's Gemini API terms apply. On a free key Google may use what you send to improve its products, and people may review it, so use a billing-enabled key for anything private. Google's terms require one for apps used in the European Economic Area, the UK and Switzerland. Hitodama is not affiliated with Google.
+                  The key belongs to your own Google account, and Google's Gemini API terms apply. On a free key Google may use what you send to improve its products, and people may review it, so use a billing-enabled key for anything private. Google's terms require one for apps used in the European Economic Area, the UK and Switzerland. Hito is not affiliated with Google.
                 </p>
 
                 <input
@@ -7141,7 +7141,7 @@ export const HitodamaApp: React.FC = () => {
                   executeVoiceCommand(askWords.join(' '));
                 }
               }}
-              placeholder="Ask Hitodama..."
+              placeholder="Ask Hito..."
               className="hitodama-lasso-input"
               style={{ width: '400px' }}
               autoFocus

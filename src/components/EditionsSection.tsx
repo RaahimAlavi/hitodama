@@ -110,7 +110,7 @@ export const EditionsSection: React.FC<EditionsSectionProps> = ({ onBuyClick, cu
             </span>
           </div>
 
-          <h3 style={{ fontSize: '28px', margin: '0 0 12px 0', color: '#333' }}>Hitodama Pass</h3>
+          <h3 style={{ fontSize: '28px', margin: '0 0 12px 0', color: '#333' }}>Hito Pass</h3>
           <p style={{ color: '#777', fontSize: '15px', lineHeight: 1.6, margin: '0 0 24px 0' }}>
             For enterprise teams and cross-device sync requiring cloud hosting.
           </p>

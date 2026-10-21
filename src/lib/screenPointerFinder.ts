@@ -124,7 +124,7 @@ export async function findTargetOnScreen(
   const screenW = typeof window !== 'undefined' ? window.innerWidth || window.screen.width : 1920;
   const screenH = typeof window !== 'undefined' ? window.innerHeight || window.screen.height : 1080;
 
-  const promptText = `You are Hitodama, an ultra-precise Windows spatial screen locator.
+  const promptText = `You are Hito, an ultra-precise Windows spatial screen locator.
 The user wants to locate or point to: "${cleanQ}".
 
 INSTRUCTIONS:
@@ -209,7 +209,7 @@ Respond with a JSON object:
       }
     }
   } catch (err) {
-    console.warn('[Hitodama] Vision target locator fallback error:', err);
+    console.warn('[Hito] Vision target locator fallback error:', err);
   }
 
   return null;

@@ -93,7 +93,7 @@ export const AgentsNotchView: React.FC<AgentsNotchViewProps> = ({
                 </span>
               </div>
               <span style={{ fontSize: '11px', color: '#71717A' }}>
-                Ask Hitodama to build, clone, or research
+                Ask Hito to build, clone, or research
               </span>
             </div>
           ) : (

@@ -44,7 +44,7 @@ export const BuyPage: React.FC<BuyPageProps> = ({ onNavigate, currency = 'INTL' 
         </button>
 
         <h1 style={{ fontSize: 'clamp(2.5rem, 5vw, 3.8rem)', fontFamily: 'var(--font-display)', margin: '0 0 12px 0' }}>
-          Buy Hitodama
+          Buy Hito
         </h1>
         <p style={{ color: '#5e5a4c', fontSize: '18px', margin: '0 0 40px 0' }}>
           Checkout · <strong>{price} once</strong> · Founders Edition · every update included.
@@ -117,7 +117,7 @@ export const BuyPage: React.FC<BuyPageProps> = ({ onNavigate, currency = 'INTL' 
             {/* Summary Box */}
             <div style={{ background: '#fafaf6', borderRadius: '14px', padding: '20px', border: '1px solid #eee' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '15px' }}>
-                <span>Hitodama Founders Edition (Windows)</span>
+                <span>Hito Founders Edition (Windows)</span>
                 <strong>{price}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#888' }}>
@@ -139,7 +139,7 @@ export const BuyPage: React.FC<BuyPageProps> = ({ onNavigate, currency = 'INTL' 
                 style={{ marginTop: '3px' }}
               />
               <span>
-                I agree to the licence terms. I understand Hitodama requires a free Google Gemini API key to operate.
+                I agree to the licence terms. I understand Hito requires a free Google Gemini API key to operate.
               </span>
             </label>
 

@@ -146,7 +146,7 @@ export const PriceSection: React.FC<PriceSectionProps> = ({ onBuyClick, currency
           </div>
 
           <div style={{ borderTop: '1px dashed #ddd', paddingTop: '16px', fontSize: '13px', color: '#666', lineHeight: 1.5 }}>
-            With Hitodama, you save <strong style={{ color: '#2f7d4f' }}>
+            With Hito, you save <strong style={{ color: '#2f7d4f' }}>
               {currency === 'IN' ? `₹${(currentDuration.subPriceINR - 499).toLocaleString()}` : `$${currentDuration.subPriceUSD - 14}.00`}
             </strong> over {currentDuration.label}.
           </div>

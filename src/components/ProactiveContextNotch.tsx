@@ -1,5 +1,5 @@
 // src/components/ProactiveContextNotch.tsx
-// Proactive App Detection & Context Suggestion Banner ("Connect to Hitodama?")
+// Proactive App Detection & Context Suggestion Banner ("Connect to Hito?")
 // Hitodama Soul-Link + Authentic App Logos + App-Matched Gradients + Infinite Marquee
 
 import React from 'react';
@@ -191,7 +191,7 @@ export const ProactiveContextNotch: React.FC<ProactiveContextNotchProps> = ({
                   whiteSpace: 'nowrap',
                 }}
               >
-                {isConnected ? `${app.name} Linked` : `Connect ${app.name} to Hitodama?`}
+                {isConnected ? `${app.name} Linked` : `Connect ${app.name} to Hito?`}
               </span>
             </div>
             <div
@@ -203,7 +203,7 @@ export const ProactiveContextNotch: React.FC<ProactiveContextNotchProps> = ({
                 letterSpacing: '0.01em',
               }}
             >
-              Use Hitodama in {app.name} to:
+              Use Hito in {app.name} to:
             </div>
           </div>
         </div>
@@ -297,7 +297,7 @@ export const ProactiveContextNotch: React.FC<ProactiveContextNotchProps> = ({
                 else multitaskAgent.unlinkApp(app.id);
               }}
               className="hitodama-context-btn muted"
-              title={`Unlink ${app.name} from Hitodama`}
+              title={`Unlink ${app.name} from Hito`}
               style={{
                 padding: '5px 11px',
                 fontSize: '11px',

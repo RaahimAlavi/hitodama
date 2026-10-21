@@ -50,7 +50,7 @@ export const HitodamaOnboardingExperience: React.FC<HitodamaOnboardingExperience
   const [soulMode, setSoulMode] = useState<'MUTED' | 'YAWNING' | 'TALKING' | 'LISTENING' | 'THINKING'>('MUTED');
   const [soulExpr, setSoulExpr] = useState<'NORMAL' | 'PEEKING' | 'EXCITED' | 'HAPPY' | 'YAWNING'>('NORMAL');
   const [dialogueTitle, setDialogueTitle] = useState<string>('A Soul Slumbers in Your Bezel...');
-  const [dialogueSub, setDialogueSub] = useState<string>('Click the sleeping spirit or press Space to wake Hitodama.');
+  const [dialogueSub, setDialogueSub] = useState<string>('Click the sleeping spirit or press Space to wake Hito.');
   const [emberToast, setEmberToast] = useState<string | null>(null);
   const [pressedKeys, setPressedKeys] = useState<Set<string>>(new Set());
   const [questCompletedFlash, setQuestCompletedFlash] = useState<boolean>(false);
@@ -136,7 +136,7 @@ export const HitodamaOnboardingExperience: React.FC<HitodamaOnboardingExperience
       setSoulMode('TALKING');
       setSoulExpr('HAPPY');
       setDialogueTitle('Voice Command Detected!');
-      setDialogueSub(`Heard: "${heard}" — Hitodama can answer, search YouTube, or control apps!`);
+      setDialogueSub(`Heard: "${heard}" — Hito can answer, search YouTube, or control apps!`);
       onSpeak(`Searching for "${heard}"! That's how easy it is to summon my voice.`);
     }
   }, [act, liveSpeechText, voiceHeard, flashEmberReward, onSpeak]);
@@ -166,7 +166,7 @@ export const HitodamaOnboardingExperience: React.FC<HitodamaOnboardingExperience
     flySoulTo(50, 30, 1.05, 0.75);
     const line = `Hold ${customShortcuts.ask} on your keyboard and say: 'Search how to cook spaghetti on youtube'.`;
     setDialogueTitle(`Quest 2 · Voice Summon (${customShortcuts.ask})`);
-    setDialogueSub(`Hold your shortcut, say the phrase below, and Hitodama will instantly wake up.`);
+    setDialogueSub(`Hold your shortcut, say the phrase below, and Hito will instantly wake up.`);
     onSpeak(line);
   }, [customShortcuts.ask, flySoulTo, onPreviewExpandIsland, onSpeak]);
 
@@ -190,7 +190,7 @@ export const HitodamaOnboardingExperience: React.FC<HitodamaOnboardingExperience
     flySoulTo(50, 30, 1.05, 0.75);
     const line = `Last power! Hold ${customShortcuts.dictate} to test Clean Dictation in any document or chat.`;
     setDialogueTitle(`Quest 4 · Clean Dictation (${customShortcuts.dictate})`);
-    setDialogueSub('Talk messy in any app—Hitodama removes filler words and types clean prose.');
+    setDialogueSub('Talk messy in any app—Hito removes filler words and types clean prose.');
     onSpeak(line);
   }, [customShortcuts.dictate, flySoulTo, onSpeak]);
 
@@ -255,8 +255,8 @@ export const HitodamaOnboardingExperience: React.FC<HitodamaOnboardingExperience
       setSoulMode('TALKING');
       setSoulExpr('HAPPY');
       const greeting =
-        "Good morning! I'm Hitodama. I float freely above your desktop without blocking your work. Let's try your powers together!";
-      setDialogueTitle('"Good morning! I am Hitodama."');
+        "Good morning! I'm Hito. I float freely above your desktop without blocking your work. Let's try your powers together!";
+      setDialogueTitle('"Good morning! I am Hito."');
       setDialogueSub(greeting);
       onSpeak(greeting);
       actLockRef.current = false;
@@ -287,7 +287,7 @@ export const HitodamaOnboardingExperience: React.FC<HitodamaOnboardingExperience
     setSoulMode('TALKING');
     setSoulExpr('HAPPY');
     setDialogueTitle('Voice Command Tested!');
-    setDialogueSub(`Heard: "${phrase}" — Hitodama searches YouTube and opens the result!`);
+    setDialogueSub(`Heard: "${phrase}" — Hito searches YouTube and opens the result!`);
     onSpeak(`Searching YouTube for "${phrase}"! That's how quick it is.`);
   };
 
@@ -436,7 +436,7 @@ export const HitodamaOnboardingExperience: React.FC<HitodamaOnboardingExperience
               setSoulMode('TALKING');
               setSoulExpr('EXCITED');
               setDialogueTitle('Target Acquired & Lasso Mastered!');
-              setDialogueSub('Any region you circle gets sent straight to Hitodama vision engine.');
+              setDialogueSub('Any region you circle gets sent straight to Hito vision engine.');
               onSpeak('Target acquired! Any region you lasso gets sent straight to my vision.');
             }
             return next;
@@ -487,7 +487,7 @@ export const HitodamaOnboardingExperience: React.FC<HitodamaOnboardingExperience
                 setSoulMode('TALKING');
                 setSoulExpr('EXCITED');
                 setDialogueTitle('Target Acquired & Lasso Mastered!');
-                setDialogueSub('Any region you circle gets sent straight to Hitodama vision engine.');
+                setDialogueSub('Any region you circle gets sent straight to Hito vision engine.');
                 onSpeak('Target acquired! Any region you lasso gets sent straight to my vision.');
               }
             }}
@@ -625,7 +625,7 @@ export const HitodamaOnboardingExperience: React.FC<HitodamaOnboardingExperience
                   setSoulMode('TALKING');
                   setSoulExpr('EXCITED');
                   setDialogueTitle('Target Acquired & Lasso Mastered!');
-                  setDialogueSub('Any region you circle gets sent straight to Hitodama vision engine.');
+                  setDialogueSub('Any region you circle gets sent straight to Hito vision engine.');
                   onSpeak('Target acquired! Any region you lasso gets sent straight to my vision.');
                 }}
                 className="spatial-glow-cta"
@@ -708,7 +708,7 @@ export const HitodamaOnboardingExperience: React.FC<HitodamaOnboardingExperience
         {act === 'SLEEPING' && (
           <div className="spatial-action-row">
             <button onClick={triggerWakeSequence} className="spatial-glow-cta">
-              Wake Hitodama (Space)
+              Wake Hito (Space)
             </button>
           </div>
         )}

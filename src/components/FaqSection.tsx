@@ -3,18 +3,18 @@ import React, { useState } from 'react';
 const FAQS = [
   {
     q: "Is the API key really free?",
-    a: "Yes. Completely free to generate in Google AI Studio without entering any credit card. Hitodama is engineered to keep everyday voice and research usage well inside Google's free tier limits, meaning there are zero recurring charges unless you explicitly choose to activate paid billing.",
+    a: "Yes. Completely free to generate in Google AI Studio without entering any credit card. Hito is engineered to keep everyday voice and research usage well inside Google's free tier limits, meaning there are zero recurring charges unless you explicitly choose to activate paid billing.",
   },
   {
-    q: "How is Hitodama a one-time purchase?",
+    q: "How is Hito a one-time purchase?",
     a: "Because you connect your own free Gemini API key, we do not pay monthly cloud hosting meters for your prompts. You buy the native Windows companion once, and you own the software forever without monthly subscription lock-in.",
   },
   {
-    q: "Is Hitodama just a Gemini wrapper?",
-    a: "Not even close. Hitodama is a high-performance native Windows application featuring an interactive procedural physics soul companion, real-time screen vision loop, keyboard automation hooks, audio waveform cleaner, and a custom Windows Dynamic Island HUD.",
+    q: "Is Hito just a Gemini wrapper?",
+    a: "Not even close. Hito is a high-performance native Windows application featuring an interactive procedural physics soul companion, real-time screen vision loop, keyboard automation hooks, audio waveform cleaner, and a custom Windows Dynamic Island HUD.",
   },
   {
-    q: "What does Hitodama actually do?",
+    q: "What does Hito actually do?",
     a: "It turns voice into instant computer action: circling on-screen elements to research them, dictating rambling voice notes into polished copy, opening applications at scheduled times, controlling media, and keeping track of your desktop context.",
   },
   {

@@ -90,10 +90,10 @@ export const Footer: React.FC<FooterProps> = ({ onBuyClick, currency = 'INTL' })
         {/* Fine Print */}
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '30px', display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12px', color: '#666' }}>
           <div>
-            © 2026 Mainak Deb Das, Otism. All rights reserved. Hitodama · 人魂
+            © 2026 Mainak Deb Das, Otism. All rights reserved. Hito · 人
           </div>
           <div>
-            YouTube, Gmail, Google, Gemini, Chrome, Amazon, Netflix, Spotify and Windows are trademarks of their respective owners. Hitodama is not affiliated with or endorsed by them.
+            YouTube, Gmail, Google, Gemini, Chrome, Amazon, Netflix, Spotify and Windows are trademarks of their respective owners. Hito is not affiliated with or endorsed by them.
           </div>
         </div>
       </div>

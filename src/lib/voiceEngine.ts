@@ -152,7 +152,7 @@ class HitodamaVoiceEngine {
           const systemText =
             mode === 'SAY_EXACT'
               ? 'Read the user message aloud verbatim with natural human expression. Do not add extra words.'
-              : `You are Hitodama, a desktop soul companion with a "${personality}" personality. Keep spoken replies under 2 short sentences, witty, and direct.`;
+              : `You are Hito, a desktop soul companion with a "${personality}" personality. Keep spoken replies under 2 short sentences, witty, and direct.`;
 
           // 1. Send Live session setup with prebuilt voice (Charon, Aoede, Fenrir, Puck)
           try {
@@ -354,7 +354,7 @@ class HitodamaVoiceEngine {
     this.speakViaNativeOS(text, options);
   }
 
-  // Main Public Method 2: Ask Hitodama a question and have it answer in voice directly
+  // Main Public Method 2: Ask Hito a question and have it answer in voice directly
   public async askAndSpeak(userPrompt: string, options: SpeakOptions = {}) {
     if (!userPrompt.trim()) return;
     this.stop();

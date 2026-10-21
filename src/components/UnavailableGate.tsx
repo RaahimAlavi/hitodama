@@ -38,10 +38,10 @@ export const UnavailableGate: React.FC<UnavailableGateProps> = ({ isOpen, onClos
           Not available in your country
         </p>
         <h2 style={{ fontSize: '24px', fontFamily: 'var(--font-display)', margin: '0 0 16px 0', color: '#1c1b17' }}>
-          Hitodama can’t work where you are.
+          Hito can’t work where you are.
         </h2>
         <p style={{ color: '#5e5a4c', fontSize: '15px', lineHeight: 1.6, margin: '0 0 12px 0' }}>
-          Hitodama Founders Edition runs on your own Gemini API key, and Google doesn’t offer the Gemini API in your country. Hitodama would never be able to answer you there, so it can’t be bought here.
+          Hito Founders Edition runs on your own Gemini API key, and Google doesn’t offer the Gemini API in your country. Hito would never be able to answer you there, so it can’t be bought here.
         </p>
         <p style={{ color: '#5e5a4c', fontSize: '14px', lineHeight: 1.6, margin: '0 0 24px 0' }}>
           See{' '}

@@ -15,7 +15,7 @@ export interface SoulConfig {
 export const SOUL_SKINS: SoulConfig[] = [
   {
     key: "flame_hitodama",
-    name: "Hitodama",
+    name: "Hito",
     core: "#FFFFFF",
     mid: "#BFE9FF",
     glow: "#5CB8FF",

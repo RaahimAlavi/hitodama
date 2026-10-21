@@ -36,7 +36,7 @@ export const KeySection: React.FC = () => {
           </span>
           <h3 style={{ fontSize: '20px', margin: '0 0 10px 0' }}>Add it once.</h3>
           <p style={{ color: '#666', fontSize: '14px', lineHeight: 1.5, margin: '0 0 20px 0' }}>
-            Paste your key into Hitodama's Settings drawer. It is stored securely on your local machine only.
+            Paste your key into Hito's Settings drawer. It is stored securely on your local machine only.
           </p>
 
           <div style={{ background: '#f5f5f5', padding: '12px 14px', borderRadius: '10px', fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#333' }}>
@@ -56,7 +56,7 @@ export const KeySection: React.FC = () => {
           </p>
 
           <div style={{ background: 'rgba(255,255,255,0.08)', padding: '12px 14px', borderRadius: '10px', fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#5CB8FF' }}>
-            "Hitodama, what's on my screen right now?"
+            "Hito, what's on my screen right now?"
           </div>
         </div>
       </div>

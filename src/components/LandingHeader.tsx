@@ -30,9 +30,9 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
           className="LandingHeader_brand__ioVxh"
           href="/"
           onClick={(e) => handleNav('/', e)}
-          aria-label="Hitodama home"
+          aria-label="Hito home"
         >
-          <img src="/hitodama-logo.png" alt="Hitodama" width="32" height="32" />
+          <img src="/hitodama-logo.png" alt="Hito" width="32" height="32" />
           <span>
             <b>HITODAMA</b>
             <small>人魂</small>
@@ -106,7 +106,7 @@ export const LandingHeader: React.FC<LandingHeaderProps> = ({
         <a href="#demo" onClick={() => setMobileMenuOpen(false)}>How it works<span>↗</span></a>
         <a href="#faq" onClick={() => setMobileMenuOpen(false)}>FAQ<span>↗</span></a>
         <a href="/account/" onClick={(e) => handleNav('/account/', e)}>Account<span>↗</span></a>
-        <a href="/buy/" onClick={(e) => handleNav('/buy/', e)}>Buy Hitodama ({currency === 'IN' ? '₹499' : '$14'})<span>↗</span></a>
+        <a href="/buy/" onClick={(e) => handleNav('/buy/', e)}>Buy Hito ({currency === 'IN' ? '₹499' : '$14'})<span>↗</span></a>
       </div>
     </header>
   );

@@ -1,5 +1,5 @@
 // src/components/AgentTopRightDock.tsx
-// Floating Top-Right Hitodama Agent Squircle & Choice Popover
+// Floating Top-Right Hito Agent Squircle & Choice Popover
 // 100% SVG Vector Graphics · Zero Emojis · Matches Hitodama Notch Hierarchy
 
 import React, { useState } from 'react';
@@ -196,7 +196,7 @@ export const AgentTopRightDock: React.FC<AgentTopRightDockProps> = ({
                   letterSpacing: '0.01em',
                 }}
               >
-                Hitodama Agent
+                Hito Agent
               </span>
             </div>
 

@@ -40,7 +40,7 @@ export const PersonaSection: React.FC = () => {
         >
           Shape your{' '}
           <em style={{ fontStyle: 'italic', fontFamily: 'var(--font-display)', color: '#3d3a2f' }}>
-            Hitodama.
+            Hito.
           </em>
         </h2>
         <p
@@ -77,7 +77,7 @@ export const PersonaSection: React.FC = () => {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '18px' }}>💧</span>
-            <span style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff' }}>Hitodama</span>
+            <span style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff' }}>Hito</span>
           </div>
           <div
             style={{

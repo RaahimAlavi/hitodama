@@ -39,7 +39,7 @@ export const Hero: React.FC<HeroProps> = ({ onBuyClick }) => {
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
               <path fill="currentColor" d="M0 2.4 6.5 1.5v6H0Zm7.4-1L16 0v7.4H7.4ZM0 8.5h6.5v6L0 13.6Zm7.4 0H16V16l-8.6-1.2Z" />
             </svg>
-            <span>Get Hitodama</span>
+            <span>Get Hito</span>
           </a>
         </div>
       </div>

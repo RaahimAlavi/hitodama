@@ -63,7 +63,7 @@ export const IslandSection: React.FC = () => {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: '#fff' }}>
             <div>
-              <p style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>Hitodama Island</p>
+              <p style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>Hito Island</p>
               <p style={{ margin: 0, fontSize: '11px', color: '#8ED92F' }}>Ready for commands</p>
             </div>
             <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.15)' }} />
@@ -94,7 +94,7 @@ export const IslandSection: React.FC = () => {
           <div style={{ background: 'rgba(255,255,255,0.03)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)', textAlign: 'left' }}>
             <h4 style={{ margin: '0 0 8px 0', color: '#fff', fontSize: '16px' }}>Universal Clipboard</h4>
             <p style={{ margin: 0, color: '#888', fontSize: '13px', lineHeight: 1.6 }}>
-              Access recent snippets, copied links, and screenshots in one swipe or by asking Hitodama to paste.
+              Access recent snippets, copied links, and screenshots in one swipe or by asking Hito to paste.
             </p>
           </div>
         </div>

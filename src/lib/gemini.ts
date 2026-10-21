@@ -228,7 +228,7 @@ export const GEMINI_TOOLS = [
   },
 ];
 
-const SYSTEM_INSTRUCTION = `You are Hitodama, a concise, loyal, fast desktop soul companion in the user's Windows Dynamic Island.
+const SYSTEM_INSTRUCTION = `You are Hito, a concise, loyal, fast desktop soul companion in the user's Windows Dynamic Island.
 - When the user asks to play a song, artist, playlist, or music on Spotify (e.g. "play Daniel Caesar", "play liked songs on Spotify"), ALWAYS call play_spotify.
 - When the user asks to click, play, select, or tap anything currently on screen (e.g. "play the first video", "click the second result", "click subscribe", "close that popup") OR asks you to write/type anything on their PC (e.g. "write hello world", "type spaghetti in the search bar"), ALWAYS call computer_action.
 - When the user asks to find, locate, or point to an item without clicking it, call find_and_point.
@@ -291,7 +291,7 @@ export async function callGeminiWithFallback(
         res.status === 400
       ) {
         console.warn(
-          `[Hitodama] ${model} unavailable (${res.status}), cascading to next model...`
+          `[Hito] ${model} unavailable (${res.status}), cascading to next model...`
         );
         continue;
       }
@@ -308,14 +308,14 @@ export async function callGeminiWithFallback(
 
       // If the model produced neither text nor a function call, cascade to the next model!
       if (!text && !hasFunctionCall) {
-        console.warn(`[Hitodama] ${model} returned empty response, cascading to next model...`);
+        console.warn(`[Hito] ${model} returned empty response, cascading to next model...`);
         continue;
       }
 
       return { modelUsed: model, data, text };
     } catch (err: any) {
       lastError = err;
-      console.warn(`[Hitodama] Model ${model} failed, trying fallback:`, err?.message || err);
+      console.warn(`[Hito] Model ${model} failed, trying fallback:`, err?.message || err);
     }
   }
 
@@ -444,7 +444,7 @@ export async function cleanDictation(rawText: string, apiKey: string): Promise<s
     cleaned = cleaned.replace(/^["']|["']$/g, '').trim();
     return cleaned || rawText.trim();
   } catch (err) {
-    console.warn('[Hitodama] cleanDictation fallback exhausted, returning raw transcript:', err);
+    console.warn('[Hito] cleanDictation fallback exhausted, returning raw transcript:', err);
     return rawText.trim();
   }
 }

@@ -45,7 +45,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate, currency =
         </span>
 
         <h1 style={{ fontSize: 'clamp(2.5rem, 5vw, 3.8rem)', fontFamily: 'var(--font-display)', margin: '16px 0 12px 0' }}>
-          Your Hitodama.
+          Your Hito.
         </h1>
         <p style={{ color: '#5e5a4c', fontSize: '18px', margin: '0 0 36px 0', lineHeight: 1.6 }}>
           Use the email from your purchase. No signup. No password to remember.
@@ -118,7 +118,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({ onNavigate, currency =
             </button>
 
             <p style={{ margin: 0, fontSize: '12px', color: '#888', textAlign: 'center', lineHeight: 1.5 }}>
-              Hitodama stores account and purchase access only. Payment credentials never enter this website.
+              Hito stores account and purchase access only. Payment credentials never enter this website.
             </p>
           </form>
         )}

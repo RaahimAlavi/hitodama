@@ -68,7 +68,7 @@ export const Productivity: React.FC = () => {
             <em>Productivity Tool</em>
           </h2>
           <p className="Productivity_description__yiNx2">
-            Hitodama is a combination of tools built to increase your productivity by up to 10×. It lives on your computer, makes your job easier, simplifies your tasks, and saves you time.
+            Hito is a combination of tools built to increase your productivity by up to 10×. It lives on your computer, makes your job easier, simplifies your tasks, and saves you time.
           </p>
         </div>
 
@@ -79,7 +79,7 @@ export const Productivity: React.FC = () => {
               <button
                 className="Productivity_toolCard__dJhLx"
                 type="button"
-                aria-label="Preview the Hitodama circle to ask tool: hold Ctrl and Shift, circle anything, ask about it"
+                aria-label="Preview the Hito circle to ask tool: hold Ctrl and Shift, circle anything, ask about it"
                 data-active={activeCard === 0 ? 'true' : 'false'}
                 style={
                   {
@@ -138,7 +138,7 @@ export const Productivity: React.FC = () => {
               <button
                 className="Productivity_toolCard__dJhLx"
                 type="button"
-                aria-label="Preview the Hitodama dictation tool: hold Ctrl and Win and talk"
+                aria-label="Preview the Hito dictation tool: hold Ctrl and Win and talk"
                 data-active={activeCard === 1 ? 'true' : 'false'}
                 style={
                   {
@@ -197,7 +197,7 @@ export const Productivity: React.FC = () => {
               <button
                 className="Productivity_toolCard__dJhLx"
                 type="button"
-                aria-label="Preview the Hitodama to-do list: three to-dos ticked off one by one"
+                aria-label="Preview the Hito to-do list: three to-dos ticked off one by one"
                 data-active={activeCard === 2 ? 'true' : 'false'}
                 style={
                   {

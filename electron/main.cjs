@@ -260,7 +260,7 @@ function updateTrayMenu() {
       label: 'Shortcuts',
       submenu: [
         {
-          label: `Ask Hitodama: ${activeShortcuts.ask}`,
+          label: `Ask Hito: ${activeShortcuts.ask}`,
           click: () => {
             if (mainWindow) {
               mainWindow.show();
@@ -324,7 +324,7 @@ function updateTrayMenu() {
     },
     { type: 'separator' },
     {
-      label: 'Quit Hitodama',
+      label: 'Quit Hito',
       click: () => {
         app.quit();
       },
@@ -339,7 +339,7 @@ function createSystemTray() {
 
   const icon = createHitodamaTrayIcon();
   tray = new Tray(icon);
-  tray.setToolTip('Hitodama · Give your computer a soul');
+  tray.setToolTip('Hito · Give your computer a soul');
   updateTrayMenu();
 
   tray.on('click', () => {
@@ -844,7 +844,7 @@ ipcMain.handle('capture-screen', async () => {
       return { success: true, image: base64Data };
     }
   } catch (err) {
-    console.warn('[Hitodama] desktopCapturer failed, falling back to PowerShell capture:', err);
+    console.warn('[Hito] desktopCapturer failed, falling back to PowerShell capture:', err);
   } finally {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.setOpacity(1);
@@ -1251,7 +1251,7 @@ ipcMain.handle('sync-to-notion', async (event, { apiKey, databaseId, pageData })
           title: [
             {
               text: {
-                content: pageData.title || 'Hitodama Inspiration Entry',
+                content: pageData.title || 'Hito Inspiration Entry',
               },
             },
           ],
@@ -1346,13 +1346,13 @@ function ensureLatestFrontendBuild() {
     const lastSignature = fs.existsSync(stampFile) ? fs.readFileSync(stampFile, 'utf8').trim() : '';
 
     if (currentSignature !== lastSignature || !fs.existsSync(path.join(distDir, 'index.html'))) {
-      console.log('[Hitodama] Compiling latest UI changes into dist/...');
+      console.log('[Hito] Compiling latest UI changes into dist/...');
       execSync('npx vite build', { cwd: rootDir, stdio: 'inherit' });
       if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
       fs.writeFileSync(stampFile, currentSignature, 'utf8');
     }
   } catch (err) {
-    console.error('[Hitodama] Auto-build warning:', err.message);
+    console.error('[Hito] Auto-build warning:', err.message);
   }
 }
 
