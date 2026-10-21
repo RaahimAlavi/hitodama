@@ -71,9 +71,9 @@ export const SOUL_SKINS: SoulConfig[] = [
   {
     key: "flame_void",
     name: "Void",
-    core: "#F2E9FF",
-    mid: "#8A6FC7",
-    glow: "#2B1E52",
+    core: "#FFFFFF",
+    mid: "#C4B5FD",
+    glow: "#8B5CF6",
     aura: "void",
     blurb: "The dark it drifted through, carried on purpose this time. Includes the Collapse ability, free.",
     free: false,
@@ -146,6 +146,11 @@ export class ParticleSystem {
     this.style = style;
     this.mid = hexToRgb(midHex);
     this.glow = hexToRgb(glowHex);
+  }
+
+  setColors(mid: [number, number, number], glow: [number, number, number]) {
+    this.mid = mid;
+    this.glow = glow;
   }
 
   update(dt: number, intensity: number, bounds: { x: number; y: number; w: number; h: number }, scale = 1) {
@@ -351,36 +356,84 @@ export function drawSoul(
     talkingEnergy?: number;
     squash?: number;
     tilt?: number;
+    annoyance?: number;
+    isHit?: boolean;
+    isBreathingRelief?: boolean;
+    breathProgress?: number;
   }
 ) {
   const { core, mid, glow, time, mode = 'LISTENING', gaze = { x: 0, y: 0 } } = config;
-  const coreRgb = hexToRgb(core);
-  const midRgb = hexToRgb(mid);
-  const glowRgb = hexToRgb(glow);
+  const rawCoreRgb = hexToRgb(core);
+  const rawMidRgb = hexToRgb(mid);
+  const rawGlowRgb = hexToRgb(glow);
 
-  const cx = center.x;
-  const cy = center.y;
+  const annoyance = Math.max(0, Math.min(1, config.annoyance ?? 0));
+  const isHit = !!config.isHit;
+  const isBreathingRelief = !!config.isBreathingRelief;
+  const breathProg = Math.max(0, Math.min(1, config.breathProgress ?? 0));
+
+  // Enraged crimson red emotion target (#EF4444)
+  const angryCore: [number, number, number] = [255, 205, 205];
+  const angryMid: [number, number, number] = [239, 68, 68];
+  const angryGlow: [number, number, number] = [220, 38, 38];
+
+  const lerpRgb = (a: [number, number, number], b: [number, number, number], t: number): [number, number, number] => [
+    Math.round(a[0] + (b[0] - a[0]) * t),
+    Math.round(a[1] + (b[1] - a[1]) * t),
+    Math.round(a[2] + (b[2] - a[2]) * t),
+  ];
+
+  const coreRgb = lerpRgb(rawCoreRgb, angryCore, annoyance);
+  const midRgb = lerpRgb(rawMidRgb, angryMid, annoyance);
+  const glowRgb = lerpRgb(rawGlowRgb, angryGlow, annoyance);
+
+  // Subtle angry trembling/shudder when annoyance rises above 0.4
+  const angerTrembleX = annoyance > 0.4 ? (annoyance - 0.4) * 2.4 * Math.sin(time * 50) : 0;
+  const angerTrembleY = annoyance > 0.4 ? (annoyance - 0.4) * 1.6 * Math.cos(time * 42) : 0;
+
+  const cx = center.x + angerTrembleX;
+  const cy = center.y + angerTrembleY;
   const r = radius;
 
-  ctx.save();
-
-  // Mode params
+  // Mode params & relief breath expansion
   const isTalking = mode === 'TALKING';
   const isThinking = mode === 'THINKING';
-  const isSleeping = mode === 'MUTED' || mode === 'YAWNING';
+  const isYawning = mode === 'YAWNING';
+  const isSleeping = mode === 'MUTED';
+
+  // Yawn stretch wave: rising tall stretch with a smooth breathing curve
+  const yawnWave = isYawning ? Math.max(0, Math.sin(time * 2.1)) : 0;
+  const effectiveSquash = isYawning ? 1 + yawnWave * 0.24 : (config.squash ?? 1);
+
+  // Squash & stretch physics (flinch on poke or morning yawn stretch)
+  if (effectiveSquash !== 1) {
+    ctx.translate(cx, cy);
+    ctx.scale(1 / Math.sqrt(effectiveSquash), effectiveSquash);
+    ctx.translate(-cx, -cy);
+  }
 
   const talkingPulse = isTalking ? 0.08 * Math.sin(time * 14) : 0;
   const idleFloat = 0.04 * Math.sin(time * 2.2);
-  const curR = r * (1 + idleFloat + talkingPulse);
 
-  // 1. Ambient Outer Halo
-  const haloGrad = ctx.createRadialGradient(cx, cy, curR * 0.3, cx, cy, curR * 2.2);
-  haloGrad.addColorStop(0, rgba(glowRgb, 0.35));
-  haloGrad.addColorStop(0.5, rgba(glowRgb, 0.12));
+  let breathExpansion = 0;
+  if (isBreathingRelief) {
+    // Inhale swell (0 -> 0.38) then exhale relax (0.38 -> 1.0)
+    breathExpansion = breathProg < 0.38
+      ? Math.sin((breathProg / 0.38) * (Math.PI / 2)) * 0.16
+      : Math.cos(((breathProg - 0.38) / 0.62) * (Math.PI / 2)) * 0.16;
+  }
+
+  const curR = r * (1 + idleFloat + talkingPulse + breathExpansion);
+
+  // 1. Ambient Outer Halo (fades to 0 before canvas borders)
+  const haloR = curR * 1.85;
+  const haloGrad = ctx.createRadialGradient(cx, cy, curR * 0.25, cx, cy, haloR);
+  haloGrad.addColorStop(0, rgba(glowRgb, 0.32));
+  haloGrad.addColorStop(0.55, rgba(glowRgb, 0.10));
   haloGrad.addColorStop(1, rgba(glowRgb, 0));
   ctx.fillStyle = haloGrad;
   ctx.beginPath();
-  ctx.arc(cx, cy, curR * 2.2, 0, Math.PI * 2);
+  ctx.arc(cx, cy, haloR, 0, Math.PI * 2);
   ctx.fill();
 
   // 2. Flame Spine and Teardrop Body using Superellipse
@@ -430,10 +483,14 @@ export function drawSoul(
   const handOffsetL = 0.05 * Math.sin(time * 2.5);
   const handOffsetR = 0.05 * Math.sin(time * 2.5 + Math.PI);
 
-  const handLX = cx - curR * 1.18;
-  const handLY = cy + curR * 0.35 + handOffsetL * curR;
-  const handRX = cx + curR * 1.18;
-  const handRY = cy + curR * 0.35 + handOffsetR * curR;
+  // During yawning stretch, hands lift upward and outwards like a morning stretch!
+  const yawnHandLift = isYawning ? -yawnWave * curR * 0.45 : 0;
+  const yawnHandSpread = isYawning ? yawnWave * curR * 0.16 : 0;
+
+  const handLX = cx - curR * 1.18 - yawnHandSpread;
+  const handLY = cy + curR * 0.35 + handOffsetL * curR + yawnHandLift;
+  const handRX = cx + curR * 1.18 + yawnHandSpread;
+  const handRY = cy + curR * 0.35 + handOffsetR * curR + yawnHandLift;
 
   // Left Hand
   const handGradL = ctx.createRadialGradient(handLX - handR * 0.2, handLY - handR * 0.2, 0, handLX, handLY, handR);
@@ -465,10 +522,72 @@ export function drawSoul(
   const eyeLX = cx - eyeSpacing / 2 + gazeX;
   const eyeRX = cx + eyeSpacing / 2 + gazeX;
 
-  // Eye color (dark soulful ink)
-  ctx.fillStyle = "#14182A";
+  // Eye color (dark soulful ink or angry deep maroon)
+  const eyeColor = annoyance > 0.5 ? "#2B0B0E" : "#14182A";
+  ctx.fillStyle = eyeColor;
 
-  if (isSleeping) {
+  if (isHit) {
+    // Wincing / squishing eyes (> <) when hit/poked!
+    ctx.lineWidth = Math.max(2, curR * 0.058);
+    ctx.strokeStyle = eyeColor;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    // Left eye: >
+    ctx.beginPath();
+    ctx.moveTo(eyeLX - eyeR * 0.95, eyeY - eyeR * 0.95);
+    ctx.lineTo(eyeLX + eyeR * 0.75, eyeY);
+    ctx.lineTo(eyeLX - eyeR * 0.95, eyeY + eyeR * 0.95);
+    ctx.stroke();
+
+    // Right eye: <
+    ctx.beginPath();
+    ctx.moveTo(eyeRX + eyeR * 0.95, eyeY - eyeR * 0.95);
+    ctx.lineTo(eyeRX - eyeR * 0.75, eyeY);
+    ctx.lineTo(eyeRX + eyeR * 0.95, eyeY + eyeR * 0.95);
+    ctx.stroke();
+  } else if (isYawning) {
+    // Squeezed morning yawning eyes (> <)
+    ctx.lineWidth = Math.max(2, curR * 0.054);
+    ctx.strokeStyle = "#14182A";
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    // Left eye: >
+    ctx.beginPath();
+    ctx.moveTo(eyeLX - eyeR * 0.85, eyeY - eyeR * 0.7);
+    ctx.lineTo(eyeLX + eyeR * 0.65, eyeY);
+    ctx.lineTo(eyeLX - eyeR * 0.85, eyeY + eyeR * 0.7);
+    ctx.stroke();
+
+    // Right eye: <
+    ctx.beginPath();
+    ctx.moveTo(eyeRX + eyeR * 0.85, eyeY - eyeR * 0.7);
+    ctx.lineTo(eyeRX - eyeR * 0.65, eyeY);
+    ctx.lineTo(eyeRX + eyeR * 0.85, eyeY + eyeR * 0.7);
+    ctx.stroke();
+
+    // Wide open yawning oval mouth
+    const mouthW = curR * (0.16 + yawnWave * 0.12);
+    const mouthH = curR * (0.18 + yawnWave * 0.16);
+    const mouthY = cy + curR * 0.24;
+    ctx.fillStyle = "#14182A";
+    ctx.beginPath();
+    ctx.ellipse(cx, mouthY, mouthW, mouthH, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Soft morning spirit breath puff rising from mouth
+    const puffAlpha = yawnWave * 0.45;
+    if (puffAlpha > 0.05) {
+      ctx.fillStyle = rgba(glowRgb, puffAlpha);
+      ctx.beginPath();
+      ctx.arc(cx + curR * 0.38, mouthY - curR * 0.35, curR * (0.09 + yawnWave * 0.08), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx + curR * 0.55, mouthY - curR * 0.55, curR * (0.06 + yawnWave * 0.05), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (isSleeping) {
     // Sleeping slits / curved closed eyes
     ctx.lineWidth = Math.max(1.5, curR * 0.04);
     ctx.strokeStyle = "#14182A";
@@ -496,6 +615,85 @@ export function drawSoul(
       ctx.fillText("Z", zX, zY);
     }
     ctx.restore();
+  } else if (isBreathingRelief) {
+    // Relieved contented sigh / smiling closed crescents (^ ^)
+    ctx.lineWidth = Math.max(1.8, curR * 0.048);
+    ctx.strokeStyle = "#14182A";
+    ctx.lineCap = "round";
+
+    // Left eye (smiling curved upward arc: ^)
+    ctx.beginPath();
+    ctx.arc(eyeLX, eyeY + eyeR * 0.25, eyeR * 1.05, 1.15 * Math.PI, 1.85 * Math.PI);
+    ctx.stroke();
+
+    // Right eye (smiling curved upward arc: ^)
+    ctx.beginPath();
+    ctx.arc(eyeRX, eyeY + eyeR * 0.25, eyeR * 1.05, 1.15 * Math.PI, 1.85 * Math.PI);
+    ctx.stroke();
+
+    // Soft open exhale mouth and subtle breath puff
+    if (breathProg > 0.3) {
+      const exhaleProg = (breathProg - 0.3) / 0.7; // 0 -> 1
+      ctx.fillStyle = "#14182A";
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + curR * 0.24, curR * 0.05, curR * 0.035, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Gentle floating breath wisp
+      const wispAlpha = Math.sin(exhaleProg * Math.PI) * 0.42;
+      if (wispAlpha > 0.01) {
+        ctx.fillStyle = rgba(glowRgb, wispAlpha);
+        ctx.beginPath();
+        ctx.arc(cx, cy + curR * 0.18 - exhaleProg * curR * 0.55, curR * (0.07 + exhaleProg * 0.09), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  } else if (annoyance > 0.35) {
+    // Annoyed & angry eyes with furrowed eyebrows!
+    const narrowness = Math.max(0.5, 1.35 - annoyance * 0.7);
+    ctx.beginPath();
+    ctx.ellipse(eyeLX, eyeY, eyeR * 0.85, eyeR * narrowness, -0.18 * annoyance, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.ellipse(eyeRX, eyeY, eyeR * 0.85, eyeR * narrowness, 0.18 * annoyance, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Catchlights (tiny reflection sparkles)
+    ctx.fillStyle = "#FFFFFF";
+    ctx.beginPath();
+    ctx.ellipse(eyeLX - eyeR * 0.2, eyeY - eyeR * 0.2, eyeR * 0.22, eyeR * 0.28, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(eyeRX - eyeR * 0.2, eyeY - eyeR * 0.2, eyeR * 0.22, eyeR * 0.28, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Sharp angled eyebrows (\  /)
+    ctx.lineWidth = Math.max(1.8, curR * 0.052);
+    ctx.strokeStyle = eyeColor;
+    ctx.lineCap = "round";
+
+    const browDrop = (annoyance - 0.25) * eyeR * 1.6;
+    // Left eyebrow (\)
+    ctx.beginPath();
+    ctx.moveTo(eyeLX - eyeR * 1.2, eyeY - eyeR * 1.4);
+    ctx.lineTo(eyeLX + eyeR * 1.1, eyeY - eyeR * 0.85 + browDrop);
+    ctx.stroke();
+
+    // Right eyebrow (/)
+    ctx.beginPath();
+    ctx.moveTo(eyeRX + eyeR * 1.2, eyeY - eyeR * 1.4);
+    ctx.lineTo(eyeRX - eyeR * 1.1, eyeY - eyeR * 0.85 + browDrop);
+    ctx.stroke();
+
+    // Irritated pout/frown when not talking
+    if (!isTalking) {
+      ctx.lineWidth = Math.max(1.5, curR * 0.04);
+      ctx.strokeStyle = eyeColor;
+      ctx.beginPath();
+      ctx.arc(cx + gazeX * 0.35, cy + curR * 0.24, curR * 0.11, 1.2 * Math.PI, 1.8 * Math.PI);
+      ctx.stroke();
+    }
   } else {
     // Open eyes with blink interval
     const blinkCycle = time % 4.5;
@@ -531,12 +729,12 @@ export function drawSoul(
   }
 
   // 6. Mouth / Talking Animation
-  if (isTalking) {
+  if (isTalking && !isYawning) {
     const mouthW = curR * 0.2;
     const mouthH = curR * (0.08 + 0.1 * Math.abs(Math.sin(time * 12)));
     const mouthY = cy + curR * 0.22;
 
-    ctx.fillStyle = "#14182A";
+    ctx.fillStyle = eyeColor;
     ctx.beginPath();
     ctx.ellipse(cx + gazeX * 0.5, mouthY, mouthW / 2, mouthH, 0, 0, Math.PI * 2);
     ctx.fill();
