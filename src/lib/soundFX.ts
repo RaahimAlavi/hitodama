@@ -459,6 +459,15 @@ class HitodamaSoundEngine {
     });
   }
 
+  // 15B. Fanfare / Sparkle Aliases for Ember rewards
+  public playFanfare() {
+    this.playQuestComplete();
+  }
+
+  public playSparkle() {
+    this.playSuccessChime();
+  }
+
   // 11. Spirit Swoop / Wisp flight SFX
   public playWisp() {
     this.playExpand();

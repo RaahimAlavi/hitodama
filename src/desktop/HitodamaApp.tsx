@@ -117,6 +117,9 @@ declare global {
       onTriggerAsk?: (cb: () => void) => () => void;
       onOpenSettings?: (cb: (section?: 'soul' | 'settings' | 'connect' | 'shortcuts') => void) => () => void;
       onClipboardItemAdded?: (cb: (item: ClipboardItem) => void) => () => void;
+      syncEmbersState?: (data: { count: number; isWaiting: boolean }) => Promise<{ success: boolean }>;
+      onClaimDailyEmber?: (callback: () => void) => () => void;
+      onGrantCreatorEmbers?: (callback: (amount: number) => void) => () => void;
     };
   }
 }
@@ -882,6 +885,9 @@ export const HitodamaApp: React.FC = () => {
     const saved = localStorage.getItem('hitodama_embers');
     return saved ? parseInt(saved, 10) : 67;
   });
+  const [dailyEmberClaimedDate, setDailyEmberClaimedDate] = useState<string>(() => {
+    return localStorage.getItem('hitodama_daily_ember_date') || '';
+  });
   const [rewardedTaskIds, setRewardedTaskIds] = useState<number[]>(() => {
     const todayKey = new Date().toDateString();
     const savedDate = localStorage.getItem('hitodama_ember_date');
@@ -1605,6 +1611,94 @@ export const HitodamaApp: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('hitodama_routines', JSON.stringify(routines));
   }, [routines]);
+
+  // Embers Forge Status: Daily Flame Bonus & Waiting Status
+  const isDailyEmberWaiting = dailyEmberClaimedDate !== new Date().toDateString();
+  const isEmberWaiting = isDailyEmberWaiting || (rewardedTaskIds.length < 5 && todos.some((t) => !t.completed));
+  const [emberToast, setEmberToast] = useState<{ amount: number; label: string } | null>(null);
+
+  const handleClaimWaitingEmber = useCallback(() => {
+    const today = new Date().toDateString();
+    localStorage.setItem('hitodama_daily_ember_date', today);
+    setDailyEmberClaimedDate(today);
+
+    addEmbers(15);
+    soundFX.playFanfare();
+    setEmberToast({ amount: 15, label: 'Daily Forge Ember Claimed!' });
+    setTimeout(() => setEmberToast(null), 2500);
+
+    setHitodamaReply({
+      bold: '🔥 Daily Ember Stoked!',
+      rest: '+15 Embers added to your soul forge',
+    });
+    speakAsHitodama('Your daily ember has been stoked. 15 embers added to your soul forge.');
+    setContextCard(null);
+  }, [addEmbers, speakAsHitodama]);
+
+  const handleGrantCreatorEmbers = useCallback(
+    (amount = 5000) => {
+      addEmbers(amount);
+      soundFX.playFanfare();
+      setEmberToast({ amount, label: 'Creator Testing Embers Stoked!' });
+      setTimeout(() => setEmberToast(null), 2500);
+
+      setHitodamaReply({
+        bold: '🔥 Creator Embers Granted!',
+        rest: `+${amount.toLocaleString()} testing fuel stoked into your forge`,
+      });
+      speakAsHitodama(`Creator embers granted! ${amount.toLocaleString()} fiery embers stoked into your forge.`);
+    },
+    [addEmbers, speakAsHitodama]
+  );
+
+  // Sync embers state to Electron Windows System Tray
+  useEffect(() => {
+    const api = (window as any).hitodamaAPI;
+    if (api?.syncEmbersState) {
+      api.syncEmbersState({ count: embers, isWaiting: isEmberWaiting });
+    }
+  }, [embers, isEmberWaiting]);
+
+  // Listen for Tray actions (Claim daily ember / Creator testing stoke)
+  useEffect(() => {
+    const api = (window as any).hitodamaAPI;
+    if (!api) return;
+
+    const unClaim = api.onClaimDailyEmber?.(() => {
+      handleClaimWaitingEmber();
+    });
+    const unGrant = api.onGrantCreatorEmbers?.((amt: number) => {
+      handleGrantCreatorEmbers(amt || 5000);
+    });
+
+    return () => {
+      unClaim?.();
+      unGrant?.();
+    };
+  }, [handleClaimWaitingEmber, handleGrantCreatorEmbers]);
+
+  // Proactively remind the user whenever an ember is waiting!
+  const hasRemindedEmberTodayRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (!isDailyEmberWaiting || hasRemindedEmberTodayRef.current) return;
+
+    const timer = setTimeout(() => {
+      if (isDailyEmberWaiting && !hasRemindedEmberTodayRef.current) {
+        hasRemindedEmberTodayRef.current = true;
+        setContextCard({
+          header: '🔥 Radiant Ember Waiting',
+          title: 'Daily Forge Ember Ready (+15)',
+          subtitle: 'Click here or tap the flame pill to claim your embers',
+        });
+        soundFX.playSparkle();
+        if (voiceFeedbackEnabled) {
+          speakAsHitodama('A glowing ember is waiting for you today. Claim it to feed your soul.');
+        }
+      }
+    }, 2800);
+
+    return () => clearTimeout(timer);
+  }, [isDailyEmberWaiting, voiceFeedbackEnabled, speakAsHitodama]);
 
   // Real Live Clipboard History (with LocalStorage Persistence & Universal Sync)
   const [clipboardCategory, setClipboardCategory] = useState<'All' | 'Text' | 'Images' | 'Links'>('All');
@@ -2506,6 +2600,48 @@ export const HitodamaApp: React.FC = () => {
           /\b(make|create|build|generate|design|code)\s+(me\s+)?(a\s+|an\s+|the\s+)?([a-z0-9_-]+\s+)*(website|webpage|landing\s*page|site|portfolio|saas)\b/i.test(
             lower
           ));
+
+      // Creator Embers command for instant testing!
+      if (
+        /\b(give\s+me\s+embers|creator\s+embers|test\s+embers|add\s+embers|grant\s+embers|infinite\s+embers|lots\s+of\s+embers|more\s+embers)\b/i.test(
+          lower
+        )
+      ) {
+        handleGrantCreatorEmbers(10000);
+        setAskNotchPhase('idle');
+        setSoulMode('TALKING');
+        setTimeout(() => {
+          setSoulMode('LISTENING');
+          setHitodamaReply(null);
+          setUserBubbleText(null);
+        }, 3200);
+        return;
+      }
+
+      // Claim Daily Ember voice command
+      if (
+        /\b(claim\s+ember|claim\s+daily|collect\s+ember|claim\s+my\s+ember)\b/i.test(
+          lower
+        )
+      ) {
+        if (isDailyEmberWaiting) {
+          handleClaimWaitingEmber();
+        } else {
+          setHitodamaReply({
+            bold: '🔥 Daily Ember Already Stoked',
+            rest: `${embers.toLocaleString()} embers in your forge · Complete tasks for more`,
+          });
+          speakAsHitodama('Your daily ember is already stoked. Complete tasks or check your deck for more.');
+        }
+        setAskNotchPhase('idle');
+        setSoulMode('TALKING');
+        setTimeout(() => {
+          setSoulMode('LISTENING');
+          setHitodamaReply(null);
+          setUserBubbleText(null);
+        }, 2800);
+        return;
+      }
 
       if (isNotionDatabaseTask) {
         multitaskAgent.spawnTask(text, 'notion', { kind: 'NOTION_DATABASE' });
@@ -6270,8 +6406,31 @@ export const HitodamaApp: React.FC = () => {
             )}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {activeDeckSlot && (
-                <div className="embers-currency-pill">{embers} embers</div>
+              {(activeDeckSlot || companionDockTab === 'soul' || isEmberWaiting) && (
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (isDailyEmberWaiting) {
+                      handleClaimWaitingEmber();
+                    } else {
+                      // Creator instant testing on click (+5,000)
+                      handleGrantCreatorEmbers(5000);
+                    }
+                  }}
+                  className={`embers-currency-pill ${isEmberWaiting ? 'waiting-spark' : ''}`}
+                  title={
+                    isDailyEmberWaiting
+                      ? '✨ Daily Ember Waiting! Click to claim +15 Embers'
+                      : '🔥 Embers Forge Balance · Click for Creator Stoke (+5,000)'
+                  }
+                >
+                  <span className="ember-flame-icon">🔥</span>
+                  <span className="ember-count-text">{embers.toLocaleString()}</span>
+                  <span className="ember-label">embers</span>
+                  {isDailyEmberWaiting && (
+                    <span className="ember-waiting-badge">1 Ready</span>
+                  )}
+                </div>
               )}
               <button
                 onClick={() => {
@@ -6470,7 +6629,9 @@ export const HitodamaApp: React.FC = () => {
                               ? card.slot === 'Soul'
                                 ? 'Wear Soul'
                                 : 'Activate'
-                              : `${card.cost.toLocaleString()} embers · ${moreToGo.toLocaleString()} more to go`}
+                              : moreToGo === 0
+                              ? `🔥 Forge for ${card.cost.toLocaleString()} Embers`
+                              : `🔥 ${card.cost.toLocaleString()} Embers · ${moreToGo.toLocaleString()} more to go`}
                           </button>
                         </>
                       )}
@@ -6733,12 +6894,38 @@ export const HitodamaApp: React.FC = () => {
                       </div>
                       <div className="config-card-row">
                         <div className="config-row-copy">
-                          <div className="config-row-title">Embers Balance</div>
+                          <div className="config-row-title">Embers Forge Balance</div>
                           <div className="config-row-desc">
-                            {embers} embers available · {rewardedTaskIds.length}/5 daily task rewards claimed today
+                            {embers.toLocaleString()} embers available · {rewardedTaskIds.length}/5 daily task rewards claimed today
+                            {isDailyEmberWaiting && ' · ✨ Daily Ember Waiting!'}
                           </div>
                         </div>
-                        <span className="config-pill-btn">{embers} embers</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {isDailyEmberWaiting && (
+                            <button
+                              onClick={handleClaimWaitingEmber}
+                              className="config-pill-btn ember-claim-btn"
+                              title="Claim your +15 daily forge embers"
+                            >
+                              ✨ Claim +15
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleGrantCreatorEmbers(5000)}
+                            className="config-pill-btn config-creator-ember-btn"
+                            title="Add 5,000 Embers for testing (Creator Mode)"
+                          >
+                            ⚡ Stoke +5k
+                          </button>
+                          <span
+                            onClick={() => handleGrantCreatorEmbers(1000)}
+                            className="config-pill-btn ember-balance-pill"
+                            style={{ cursor: 'pointer' }}
+                            title="Click to test (+1,000)"
+                          >
+                            🔥 {embers.toLocaleString()} embers
+                          </span>
+                        </div>
                       </div>
                       <div className="config-card-row">
                         <div className="config-row-copy">
@@ -7142,7 +7329,16 @@ export const HitodamaApp: React.FC = () => {
       )}
 
       {!isExpanded && !showCompanionWindow && contextCard && (
-        <div className="hitodama-context-drop-card" onClick={() => setContextCard(null)}>
+        <div
+          className="hitodama-context-drop-card"
+          onClick={() => {
+            if (contextCard.header.includes('Ember Waiting')) {
+              handleClaimWaitingEmber();
+            } else {
+              setContextCard(null);
+            }
+          }}
+        >
           <div className="hitodama-context-header">{contextCard.header}</div>
           <div className="hitodama-context-main">
             {contextCard.domain ? (
@@ -7390,6 +7586,12 @@ export const HitodamaApp: React.FC = () => {
           setPointedTarget(null);
         }}
       />
+
+      {emberToast && (
+        <div key={Date.now()} className="spatial-ember-burst-badge ember-screen-toast">
+          🔥 +{emberToast.amount.toLocaleString()} Embers · {emberToast.label}
+        </div>
+      )}
 
       {/* 6. FLOATING TOP-RIGHT HITODAMA AGENT SQUIRCLE + HOVER TOAST */}
       <AgentTopRightDock

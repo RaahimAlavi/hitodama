@@ -179,7 +179,6 @@ function createHitodamaTrayIcon() {
   if (fs.existsSync(trayIconPath)) {
     const loaded = nativeImage.createFromPath(trayIconPath);
     if (!loaded.isEmpty()) {
-      // 32x32 gives crisp high-DPI rendering across Windows 10/11 taskbar scale factors
       return loaded.resize({ width: 32, height: 32, quality: 'best' });
     }
   }
@@ -236,16 +235,192 @@ function createHitodamaTrayIcon() {
   return nativeImage.createFromBitmap(buf, { width: size, height: size });
 }
 
+// Dedicated Fiery Ember Tray Icon with white core, radiant amber-vermilion body and ascending sparks
+function createEmberTrayIcon() {
+  const emberIconPath = path.join(__dirname, '../public/ember-tray.png');
+  if (fs.existsSync(emberIconPath)) {
+    const loaded = nativeImage.createFromPath(emberIconPath);
+    if (!loaded.isEmpty()) {
+      return loaded.resize({ width: 32, height: 32, quality: 'best' });
+    }
+  }
+
+  const size = 32;
+  const buf = Buffer.alloc(size * size * 4, 0);
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const ny = (y - 18.5) / 10.5;
+      const taper = y < 18 ? Math.max(0.18, ((y - 2) / 16) * 0.95) : 1.0 - (y - 18) * 0.015;
+      const nx = (x - 15.5) / (9.5 * taper);
+      const dist = Math.sqrt(nx * nx + ny * ny);
+
+      if (y >= 2 && y <= 29 && dist <= 1.25) {
+        const idx = (y * size + x) * 4;
+        const isLeftEye = y >= 17 && y <= 21 && x >= 11 && x <= 13;
+        const isRightEye = y >= 17 && y <= 21 && x >= 18 && x <= 20;
+
+        if (isLeftEye || isRightEye) {
+          buf[idx] = 30;
+          buf[idx + 1] = 10;
+          buf[idx + 2] = 5;
+          buf[idx + 3] = 255;
+        } else if (dist <= 0.50) {
+          buf[idx] = 255;
+          buf[idx + 1] = 250;
+          buf[idx + 2] = 230;
+          buf[idx + 3] = 255;
+        } else if (dist <= 0.88) {
+          buf[idx] = 255;
+          buf[idx + 1] = 160;
+          buf[idx + 2] = 40;
+          buf[idx + 3] = 255;
+        } else {
+          const alpha = Math.max(0, Math.min(255, Math.round((1.25 - dist) * 4 * 240)));
+          buf[idx] = 255;
+          buf[idx + 1] = 65;
+          buf[idx + 2] = 20;
+          buf[idx + 3] = alpha;
+        }
+      }
+    }
+  }
+
+  // Drifting golden sparks
+  const sparks = [
+    [15, 2, 255, 225, 90, 240],
+    [12, 4, 255, 180, 50, 220],
+    [19, 5, 255, 195, 60, 220],
+    [14, 6, 255, 240, 140, 255],
+    [17, 3, 255, 210, 80, 200],
+  ];
+  for (const [sx, sy, r, g, b, a] of sparks) {
+    const sidx = (sy * size + sx) * 4;
+    buf[sidx] = r;
+    buf[sidx + 1] = g;
+    buf[sidx + 2] = b;
+    buf[sidx + 3] = a;
+  }
+
+  return nativeImage.createFromBitmap(buf, { width: size, height: size });
+}
+
 let activeShortcuts = {
   ask: 'Win + Alt',
   circle: 'Ctrl + Shift',
   dictate: 'Ctrl + Win',
 };
 
+// Embers Forge Tray State & Theme
+let emberState = {
+  count: 67,
+  isWaiting: false,
+};
+let currentTrayTheme = 'auto'; // 'auto' (shows Ember when waiting), 'ember', or 'hito'
+
+function refreshTrayIconAndTooltip() {
+  if (!tray) return;
+  const shouldUseEmber =
+    currentTrayTheme === 'ember' ||
+    (currentTrayTheme === 'auto' && emberState.isWaiting);
+
+  const icon = shouldUseEmber ? createEmberTrayIcon() : createHitodamaTrayIcon();
+  tray.setImage(icon);
+
+  if (emberState.isWaiting) {
+    tray.setToolTip(`Hito · 🔥 Daily Ember Waiting! (${emberState.count.toLocaleString()} Embers)`);
+  } else {
+    tray.setToolTip(`Hito · ${emberState.count.toLocaleString()} Embers · Give your computer a soul`);
+  }
+}
+
 function updateTrayMenu() {
   if (!tray) return;
 
+  const emberHeaderLabel = emberState.isWaiting
+    ? `🔥 Embers: ${emberState.count.toLocaleString()} · ✨ Daily Ember Waiting!`
+    : `🔥 Embers: ${emberState.count.toLocaleString()} Available`;
+
   const contextMenu = Menu.buildFromTemplate([
+    {
+      label: emberHeaderLabel,
+      submenu: [
+        {
+          label: emberState.isWaiting
+            ? '✨ Claim Daily Waiting Ember (+15)'
+            : '✓ Daily Ember Claimed (Come back tomorrow)',
+          enabled: emberState.isWaiting,
+          click: () => {
+            if (mainWindow) {
+              mainWindow.show();
+              mainWindow.focus();
+              mainWindow.webContents.send('claim-daily-ember');
+            }
+          },
+        },
+        {
+          label: '⚡ Creator Mode: Stoke +5,000 Embers (Test)',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('grant-creator-embers', 5000);
+            }
+          },
+        },
+        { type: 'separator' },
+        {
+          label: `🎨 Tray Design: ${
+            currentTrayTheme === 'ember'
+              ? 'Ember Flame (Active)'
+              : currentTrayTheme === 'hito'
+              ? 'Hito Soul (Active)'
+              : 'Auto (Hito / Ember on Waiting)'
+          }`,
+          submenu: [
+            {
+              label: 'Auto (Switches to Ember when waiting)',
+              type: 'radio',
+              checked: currentTrayTheme === 'auto',
+              click: () => {
+                currentTrayTheme = 'auto';
+                refreshTrayIconAndTooltip();
+                updateTrayMenu();
+              },
+            },
+            {
+              label: 'Ember Flame Design (Always Fire)',
+              type: 'radio',
+              checked: currentTrayTheme === 'ember',
+              click: () => {
+                currentTrayTheme = 'ember';
+                refreshTrayIconAndTooltip();
+                updateTrayMenu();
+              },
+            },
+            {
+              label: 'Hito Soul Design (Original Blue)',
+              type: 'radio',
+              checked: currentTrayTheme === 'hito',
+              click: () => {
+                currentTrayTheme = 'hito';
+                refreshTrayIconAndTooltip();
+                updateTrayMenu();
+              },
+            },
+          ],
+        },
+        {
+          label: '🎴 View Soul Deck & Card Unlocks...',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.show();
+              mainWindow.focus();
+              mainWindow.webContents.send('open-settings', 'soul');
+            }
+          },
+        },
+      ],
+    },
+    { type: 'separator' },
     {
       label: 'Soul Loadout',
       click: () => {
@@ -339,7 +514,7 @@ function createSystemTray() {
 
   const icon = createHitodamaTrayIcon();
   tray = new Tray(icon);
-  tray.setToolTip('Hito · Give your computer a soul');
+  refreshTrayIconAndTooltip();
   updateTrayMenu();
 
   tray.on('click', () => {
@@ -752,6 +927,16 @@ ipcMain.handle('update-shortcuts', (_event, shortcuts) => {
     updateTrayMenu();
   }
   return { success: true, shortcuts: activeShortcuts };
+});
+
+ipcMain.handle('update-embers-state', (_event, payload) => {
+  if (payload && typeof payload === 'object') {
+    if (typeof payload.count === 'number') emberState.count = payload.count;
+    if (typeof payload.isWaiting === 'boolean') emberState.isWaiting = payload.isWaiting;
+    refreshTrayIconAndTooltip();
+    updateTrayMenu();
+  }
+  return { success: true };
 });
 
 ipcMain.handle('toggle-wifi', async (_event, enable, ssidName) => {

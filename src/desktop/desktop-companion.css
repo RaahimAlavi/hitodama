@@ -1854,15 +1854,160 @@
   filter: drop-shadow(0 0 10px rgba(92, 184, 255, 0.55));
 }
 
+/* ==========================================================================
+   HYPED FIERY EMBERS FORGE CURRENCY & WAITING BEACON
+   ========================================================================== */
 .embers-currency-pill {
-  background: rgba(217, 173, 91, 0.16);
-  border: 1px solid rgba(217, 173, 91, 0.28);
-  color: #FDE68A;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(255, 69, 0, 0.28) 0%, rgba(255, 140, 0, 0.20) 50%, rgba(255, 215, 0, 0.26) 100%);
+  border: 1px solid rgba(255, 150, 40, 0.55);
+  color: #FFF4D6;
   border-radius: 999px;
-  padding: 5px 14px;
+  padding: 5px 13px;
   font-size: 11.5px;
   font-weight: 800;
   letter-spacing: -0.01em;
+  box-shadow: 0 0 16px rgba(255, 80, 0, 0.35), inset 0 0 10px rgba(255, 180, 0, 0.22);
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  cursor: pointer;
+  user-select: none;
+}
+
+.embers-currency-pill:hover {
+  transform: translateY(-1px) scale(1.03);
+  background: linear-gradient(135deg, rgba(255, 69, 0, 0.38) 0%, rgba(255, 150, 0, 0.30) 50%, rgba(255, 225, 0, 0.34) 100%);
+  border-color: rgba(255, 180, 60, 0.85);
+  box-shadow: 0 0 24px rgba(255, 110, 0, 0.65), inset 0 0 12px rgba(255, 210, 0, 0.35);
+  color: #FFFFFF;
+}
+
+.embers-currency-pill:active {
+  transform: scale(0.96);
+}
+
+.ember-flame-icon {
+  font-size: 12px;
+  display: inline-block;
+  animation: emberFlameFlicker 1.8s infinite ease-in-out;
+  filter: drop-shadow(0 0 6px rgba(255, 100, 0, 0.8));
+}
+
+@keyframes emberFlameFlicker {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 5px rgba(255, 90, 0, 0.7));
+  }
+  30% {
+    transform: scale(1.12) rotate(-3deg);
+    filter: drop-shadow(0 0 9px rgba(255, 140, 0, 0.95));
+  }
+  65% {
+    transform: scale(1.06) rotate(3deg);
+    filter: drop-shadow(0 0 7px rgba(255, 110, 0, 0.85));
+  }
+}
+
+.ember-count-text {
+  font-weight: 800;
+  color: #FFF8E7;
+  text-shadow: 0 0 8px rgba(255, 130, 0, 0.6);
+}
+
+.ember-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.82;
+  color: #FDE68A;
+}
+
+.ember-waiting-badge {
+  background: linear-gradient(135deg, #FF3D00 0%, #FF9100 100%);
+  color: #FFFFFF;
+  font-size: 8.5px;
+  font-weight: 900;
+  padding: 1.5px 6.5px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 0 10px rgba(255, 60, 0, 0.75);
+  animation: emberPulseBadge 1.4s infinite ease-in-out;
+  margin-left: 2px;
+}
+
+@keyframes emberPulseBadge {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 6px rgba(255, 60, 0, 0.6);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 14px rgba(255, 90, 0, 0.95);
+  }
+}
+
+.embers-currency-pill.waiting-spark {
+  border-color: rgba(255, 170, 50, 0.9);
+  animation: emberWaitingHeartbeat 2.2s infinite ease-in-out;
+}
+
+@keyframes emberWaitingHeartbeat {
+  0%, 100% {
+    box-shadow: 0 0 16px rgba(255, 75, 0, 0.35), inset 0 0 8px rgba(255, 180, 0, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(255, 120, 0, 0.75), 0 0 44px rgba(255, 60, 0, 0.35), inset 0 0 14px rgba(255, 210, 0, 0.45);
+    border-color: rgba(255, 215, 0, 0.95);
+  }
+}
+
+.config-creator-ember-btn {
+  background: rgba(245, 158, 11, 0.16) !important;
+  border-color: rgba(245, 158, 11, 0.38) !important;
+  color: #FCD34D !important;
+  font-weight: 800 !important;
+}
+
+.config-creator-ember-btn:hover {
+  background: rgba(245, 158, 11, 0.28) !important;
+  border-color: rgba(245, 158, 11, 0.7) !important;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.45);
+}
+
+.ember-claim-btn {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.3) 0%, rgba(245, 158, 11, 0.35) 100%) !important;
+  border-color: rgba(245, 158, 11, 0.7) !important;
+  color: #FFFBEB !important;
+  font-weight: 900 !important;
+  animation: emberPulseBadge 1.6s infinite ease-in-out;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.4);
+}
+
+.ember-balance-pill {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #FDE68A !important;
+  font-weight: 800 !important;
+  border-color: rgba(251, 191, 36, 0.3) !important;
+}
+
+.ember-screen-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 999999;
+  background: linear-gradient(135deg, rgba(30, 15, 10, 0.95) 0%, rgba(50, 20, 10, 0.95) 100%);
+  border: 1px solid rgba(255, 120, 0, 0.65);
+  color: #FFF5E0;
+  font-size: 13.5px;
+  font-weight: 800;
+  padding: 9px 18px;
+  border-radius: 999px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 24px rgba(255, 80, 0, 0.5);
+  animation: sparklePopAndFade 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  pointer-events: none;
 }
 
 .config-app-close-btn {
@@ -2014,16 +2159,38 @@
   transition: all 0.18s ease;
 }
 
-.card-bottom-action-btn.unlocked,
-.card-bottom-action-btn.can-afford {
+.card-bottom-action-btn.unlocked {
   background: rgba(217, 173, 91, 0.22);
   border-color: rgba(217, 173, 91, 0.45);
   color: #FDE68A;
 }
 
-.card-bottom-action-btn.unlocked:hover,
-.card-bottom-action-btn.can-afford:hover {
+.card-bottom-action-btn.unlocked:hover {
   background: rgba(217, 173, 91, 0.34);
+}
+
+.card-bottom-action-btn.can-afford {
+  background: linear-gradient(135deg, rgba(255, 69, 0, 0.32) 0%, rgba(255, 165, 0, 0.28) 100%) !important;
+  border-color: rgba(255, 160, 40, 0.7) !important;
+  color: #FFF7ED !important;
+  box-shadow: 0 0 18px rgba(255, 90, 0, 0.4), inset 0 0 10px rgba(255, 190, 0, 0.25);
+  animation: canAffordEmberGlow 2.4s infinite ease-in-out;
+}
+
+.card-bottom-action-btn.can-afford:hover {
+  background: linear-gradient(135deg, rgba(255, 69, 0, 0.46) 0%, rgba(255, 175, 0, 0.40) 100%) !important;
+  border-color: rgba(255, 200, 60, 0.95) !important;
+  box-shadow: 0 0 28px rgba(255, 110, 0, 0.75), inset 0 0 14px rgba(255, 220, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+@keyframes canAffordEmberGlow {
+  0%, 100% {
+    box-shadow: 0 0 14px rgba(255, 80, 0, 0.35), inset 0 0 8px rgba(255, 180, 0, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(255, 120, 0, 0.65), inset 0 0 14px rgba(255, 210, 0, 0.35);
+  }
 }
 
 .deck-pagination-bar {

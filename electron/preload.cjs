@@ -168,4 +168,15 @@ contextBridge.exposeInMainWorld('hitodamaAPI', {
   inspectWebsiteDesign: (targetUrl) => ipcRenderer.invoke('inspect-website-design', targetUrl),
   syncToNotion: (payload) => ipcRenderer.invoke('sync-to-notion', payload),
   playSpotify: (query, targetType) => ipcRenderer.invoke('play-spotify', query, targetType),
+  syncEmbersState: (data) => ipcRenderer.invoke('update-embers-state', data),
+  onClaimDailyEmber: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('claim-daily-ember', listener);
+    return () => ipcRenderer.removeListener('claim-daily-ember', listener);
+  },
+  onGrantCreatorEmbers: (callback) => {
+    const listener = (_event, amount) => callback(amount);
+    ipcRenderer.on('grant-creator-embers', listener);
+    return () => ipcRenderer.removeListener('grant-creator-embers', listener);
+  },
 });
