@@ -32,7 +32,13 @@ declare global {
       setAgentDockActive?: (active: boolean | { active: boolean; isHovered?: boolean }, isHovered?: boolean) => void;
       onRoamingDismiss?: (callback: () => void) => () => void;
       onContextAppDetected?: (callback: (appId: any) => void) => () => void;
-      openGeneratedPage?: (htmlContent: string) => Promise<{ success: boolean; path?: string; error?: string }>;
+      openGeneratedPage?: (
+        htmlContent: string,
+        existingFilePath?: string
+      ) => Promise<{ success: boolean; path?: string; error?: string }>;
+      inspectWebsiteDesign?: (
+        targetUrl: string
+      ) => Promise<{ success: boolean; designSpec?: any; error?: string }>;
       playSpotify?: (
         query: string,
         targetType?: 'track_or_artist' | 'liked_songs'
@@ -2514,6 +2520,37 @@ export const HitodamaApp: React.FC = () => {
           setSoulMode('LISTENING');
           setHitodamaReply(null);
           setUserBubbleText(null);
+        }, 2600);
+        return;
+      }
+
+      const hasGeneratedWebsite = Boolean(multitaskAgent.getLatestGeneratedPageTask());
+      const isEditPage =
+        !isNotionDatabaseTask &&
+        !isClonePage &&
+        !isSaveInspo &&
+        hasGeneratedWebsite &&
+        /\b(change|edit|update|modify|replace|remove|add\s+a|add\s+an|make\s+the|in\s+the\s+website|on\s+the\s+website|on\s+the\s+page|to\s+the\s+page|to\s+the\s+landing\s+page|previous\s+page|that\s+website)\b/i.test(
+          lower
+        ) &&
+        !lower.includes('night light') &&
+        !lower.includes('dark mode') &&
+        !lower.includes('volume');
+
+      if (isEditPage) {
+        multitaskAgent.spawnTask(text, undefined, { kind: 'EDIT_PAGE' });
+        setAskNotchPhase('idle');
+        setSoulMode('TALKING');
+        setHitodamaReply({
+          bold: 'Updating your website file...',
+          rest: 'Applying changes & refreshing browser',
+        });
+        speakAsHitodama('Updating your website with those changes right now.');
+        setTimeout(() => {
+          setSoulMode('LISTENING');
+          setHitodamaReply(null);
+          setUserBubbleText(null);
+          setContextCard(null);
         }, 2600);
         return;
       }
@@ -5902,8 +5939,8 @@ export const HitodamaApp: React.FC = () => {
                 {activeTab === 'Agents' && (
                   <AgentsNotchView
                     tasks={agentTasks}
-                    onOpenGeneratedPage={(html) => {
-                      (window as any).hitodamaAPI?.openGeneratedPage?.(html);
+                    onOpenGeneratedPage={(html, filePath) => {
+                      (window as any).hitodamaAPI?.openGeneratedPage?.(html, filePath);
                     }}
                   />
                 )}

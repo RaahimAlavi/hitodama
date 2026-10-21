@@ -1204,12 +1204,16 @@ function startActiveAppWatcher() {
 }
 
 // ============================================================================
-// 2. INSTANT LANDING PAGE / ARTIFACT LAUNCHER
-// Saves generated HTML to a temp file and opens it immediately in the user's browser
+// 2. INSTANT LANDING PAGE / ARTIFACT LAUNCHER & IN-PLACE FILE EDITOR
+// Saves generated HTML or overwrites the existing file when making iterative edits
 // ============================================================================
-ipcMain.handle('open-generated-page', async (event, htmlContent) => {
+ipcMain.handle('open-generated-page', async (_event, htmlContent, existingFilePath) => {
   try {
-    const filePath = path.join(app.getPath('temp'), `hitodama_page_${Date.now()}.html`);
+    const filePath =
+      existingFilePath && typeof existingFilePath === 'string' && existingFilePath.endsWith('.html')
+        ? existingFilePath
+        : path.join(app.getPath('temp'), `hitodama_page_${Date.now()}.html`);
+
     fs.writeFileSync(filePath, htmlContent, 'utf-8');
     await shell.openExternal(`file://${filePath.replace(/\\/g, '/')}`);
     return { success: true, path: filePath };
@@ -1219,19 +1223,264 @@ ipcMain.handle('open-generated-page', async (event, htmlContent) => {
 });
 
 // ============================================================================
-// 3. LIVE PAGE CONTEXT & NOTION CLOUD SYNC
+// 3. LIVE PAGE CONTEXT & DESIGN MCP CODEBASE / METADATA INSPECTOR
 // ============================================================================
 ipcMain.handle('get-active-page-context', async () => {
   try {
     const info = await sendUIWorkerCommand({ action: 'get_foreground_info' });
-    const rawTitle = (info && info.title) ? info.title.trim() : '';
-    const proc = (info && info.proc) ? info.proc.trim() : '';
-    const cleanTitle = rawTitle.replace(/\s+[-—]\s+(Google Chrome|Microsoft?\s*Edge|Brave|Mozilla Firefox|Opera|Arc|Vivaldi).*$/i, '').trim();
+    const rawTitle = info && info.title ? info.title.trim() : '';
+    const proc = info && info.proc ? info.proc.trim() : '';
+    const cleanTitle = rawTitle
+      .replace(/\s+[-—]\s+(Google Chrome|Microsoft?\s*Edge|Brave|Mozilla Firefox|Opera|Arc|Vivaldi).*$/i, '')
+      .trim();
+
+    // Extract the live URL from the active browser's address bar via UIAutomation
+    const urlScript = `
+      Add-Type -AssemblyName UIAutomationClient
+      Add-Type -AssemblyName UIAutomationTypes
+      Add-Type @"
+      using System;
+      using System.Runtime.InteropServices;
+      public class FgHwnd {
+        [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+      }
+"@
+      \$h = [FgHwnd]::GetForegroundWindow()
+      \$foundUrl = ""
+      if (\$h -ne [IntPtr]::Zero) {
+        try {
+          \$el = [System.Windows.Automation.AutomationElement]::FromHandle(\$h)
+          \$cond = New-Object System.Windows.Automation.PropertyCondition(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::Edit
+          )
+          \$edits = \$el.FindAll([System.Windows.Automation.TreeScope]::Descendants, \$cond)
+          foreach (\$edit in \$edits) {
+            \$vp = \$null
+            if (\$edit.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]\$vp)) {
+              \$val = \$vp.Current.Value
+              if (\$val -match "^(https?://|[a-zA-Z0-9-]+\\.[a-zA-Z]{2,})(/.*)?$") {
+                \$foundUrl = \$val
+                break
+              }
+            }
+          }
+        } catch {}
+      }
+      Write-Output \$foundUrl
+    `;
+
+    const encoded = Buffer.from(urlScript, 'utf16le').toString('base64');
+    const detectedUrl = await new Promise((resolve) => {
+      exec(
+        `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ${encoded}`,
+        { timeout: 1800 },
+        (_err, stdout) => {
+          let u = (stdout || '').trim();
+          if (u && !/^https?:\/\//i.test(u)) u = `https://${u}`;
+          resolve(u);
+        }
+      );
+    });
+
     return {
       success: true,
       title: cleanTitle || rawTitle || 'Current Active Window',
       rawTitle,
       process: proc,
+      url: detectedUrl || '',
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// Helper to fetch raw text over HTTP/HTTPS with redirect support
+function fetchRawText(targetUrl, timeoutMs = 4000) {
+  return new Promise((resolve, reject) => {
+    const httpsMod = require('https');
+    const httpMod = require('http');
+    const client = targetUrl.startsWith('https') ? httpsMod : httpMod;
+    const req = client.get(
+      targetUrl,
+      {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36',
+          Accept: 'text/html,text/css,application/xhtml+xml,*/*;q=0.8',
+        },
+      },
+      (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          const redirectUrl = new URL(res.headers.location, targetUrl).toString();
+          return fetchRawText(redirectUrl, timeoutMs).then(resolve).catch(reject);
+        }
+        if (res.statusCode !== 200) {
+          return reject(new Error(`HTTP ${res.statusCode}`));
+        }
+        const chunks = [];
+        let totalLen = 0;
+        res.on('data', (c) => {
+          totalLen += c.length;
+          if (totalLen < 600000) chunks.push(c);
+        });
+        res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+        res.on('error', reject);
+      }
+    );
+    req.on('error', reject);
+    req.setTimeout(timeoutMs, () => {
+      req.destroy();
+      reject(new Error('Timeout'));
+    });
+  });
+}
+
+// Design MCP Scraper: Extracts real CSS variables, fonts, hex colors, headings, nav items & DOM structure
+ipcMain.handle('inspect-website-design', async (_event, targetUrl) => {
+  if (!targetUrl || typeof targetUrl !== 'string' || !/^https?:\/\//i.test(targetUrl)) {
+    return { success: false, error: 'No valid URL provided' };
+  }
+
+  try {
+    const html = await fetchRawText(targetUrl, 4200);
+
+    // 1. Fetch up to 2 external CSS stylesheets to extract real :root variables & color tokens
+    const stylesheetUrls = [];
+    const linkRegex = /<link[^>]+rel=["']stylesheet["'][^>]*href=["']([^"']+)["']|<link[^>]+href=["']([^"']+\.css[^"']*)["']/gi;
+    let m;
+    while ((m = linkRegex.exec(html)) !== null && stylesheetUrls.length < 2) {
+      const rawHref = m[1] || m[2];
+      if (rawHref && !rawHref.includes('fonts.googleapis.com')) {
+        try {
+          stylesheetUrls.push(new URL(rawHref, targetUrl).toString());
+        } catch (_) {}
+      }
+    }
+
+    const cssContents = await Promise.all(
+      stylesheetUrls.map((u) => fetchRawText(u, 2500).catch(() => ''))
+    );
+    const combinedStyleSource = [
+      ...(html.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) || []),
+      ...cssContents,
+    ].join('\n');
+
+    // 2. Extract CSS Custom Properties (--*)
+    const cssVariables = [];
+    const varRegex = /(--[a-zA-Z0-9_-]+)\s*:\s*([^;}{]+);/g;
+    const seenVars = new Set();
+    let vm;
+    while ((vm = varRegex.exec(combinedStyleSource)) !== null && cssVariables.length < 30) {
+      const varName = vm[1].trim();
+      const varVal = vm[2].trim();
+      if (!seenVars.has(varName) && varVal.length < 65) {
+        seenVars.add(varName);
+        cssVariables.push(`${varName}: ${varVal}`);
+      }
+    }
+
+    // 3. Extract Font Families (Google Fonts + CSS font-family declarations)
+    const fonts = new Set();
+    const gFontRegex = /fonts\.googleapis\.com\/css2?\?family=([^"&'>]+)/gi;
+    let gf;
+    while ((gf = gFontRegex.exec(html)) !== null) {
+      decodeURIComponent(gf[1])
+        .split('&family=')
+        .forEach((f) => fonts.add(f.split(':')[0].replace(/\+/g, ' ')));
+    }
+    const ffRegex = /font-family\s*:\s*([^;}{]+)/gi;
+    let ffm;
+    while ((ffm = ffRegex.exec(combinedStyleSource)) !== null && fonts.size < 8) {
+      const cleanFont = ffm[1].split(',')[0].replace(/['"]/g, '').trim();
+      if (
+        cleanFont &&
+        !cleanFont.startsWith('var(') &&
+        !['inherit', 'sans-serif', 'serif', 'monospace', 'system-ui'].includes(cleanFont.toLowerCase())
+      ) {
+        fonts.add(cleanFont);
+      }
+    }
+
+    // 4. Extract Dominant Hex / RGB Color Tokens
+    const colorCounts = new Map();
+    const hexRegex = /#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g;
+    let hm;
+    while ((hm = hexRegex.exec(combinedStyleSource + '\n' + html)) !== null) {
+      const hex = hm[0].toUpperCase();
+      colorCounts.set(hex, (colorCounts.get(hex) || 0) + 1);
+    }
+    const topColors = Array.from(colorCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map((e) => e[0]);
+
+    // 5. Extract Title, Meta Description, Nav Links, Headings & CTA Buttons
+    const stripTags = (str) =>
+      str
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    const descMatch = html.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
+
+    const headings = [];
+    const hRegex = /<(h1|h2|h3)[^>]*>([\s\S]*?)<\/\1>/gi;
+    let hMatch;
+    while ((hMatch = hRegex.exec(html)) !== null && headings.length < 12) {
+      const txt = stripTags(hMatch[2]);
+      if (txt && txt.length > 2 && txt.length < 140) {
+        headings.push(`${hMatch[1].toUpperCase()}: "${txt}"`);
+      }
+    }
+
+    const navLinks = [];
+    const navMatch = html.match(/<(nav|header)[^>]*>([\s\S]*?)<\/\1>/i);
+    if (navMatch) {
+      const aRegex = /<a[^>]*>([\s\S]*?)<\/a>/gi;
+      let am;
+      while ((am = aRegex.exec(navMatch[2])) !== null && navLinks.length < 8) {
+        const txt = stripTags(am[1]);
+        if (txt && txt.length > 1 && txt.length < 32) navLinks.push(txt);
+      }
+    }
+
+    const buttons = [];
+    const btnRegex = /<button[^>]*>([\s\S]*?)<\/button>/gi;
+    let bm;
+    while ((bm = btnRegex.exec(html)) !== null && buttons.length < 8) {
+      const txt = stripTags(bm[1]);
+      if (txt && txt.length > 1 && txt.length < 40) buttons.push(txt);
+    }
+
+    // 6. Extract Section Landmarks / Layout Skeleton
+    const sections = [];
+    const secRegex = /<(header|nav|main|section|footer)([^>]*)>/gi;
+    let sm;
+    while ((sm = secRegex.exec(html)) !== null && sections.length < 14) {
+      const tag = sm[1].toLowerCase();
+      const clsMatch = sm[2].match(/class=["']([^"']+)["']/i);
+      const idMatch = sm[2].match(/id=["']([^"']+)["']/i);
+      sections.push(
+        `<${tag}${idMatch ? ` id="${idMatch[1]}"` : ''}${clsMatch ? ` class="${clsMatch[1].slice(0, 80)}"` : ''}>`
+      );
+    }
+
+    return {
+      success: true,
+      designSpec: {
+        url: targetUrl,
+        title: titleMatch ? stripTags(titleMatch[1]) : '',
+        description: descMatch ? descMatch[1].trim() : '',
+        fonts: Array.from(fonts),
+        cssVariables,
+        topColors,
+        navLinks,
+        headings,
+        buttons,
+        sections,
+      },
     };
   } catch (err) {
     return { success: false, error: err.message };

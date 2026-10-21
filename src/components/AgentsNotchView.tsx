@@ -8,7 +8,7 @@ import {
 
 interface AgentsNotchViewProps {
   tasks: AgentTask[];
-  onOpenGeneratedPage?: (html: string) => void;
+  onOpenGeneratedPage?: (html: string, filePath?: string) => void;
 }
 
 export const AgentsNotchView: React.FC<AgentsNotchViewProps> = ({
@@ -214,7 +214,7 @@ export const AgentsNotchView: React.FC<AgentsNotchViewProps> = ({
                     <div style={{ minWidth: 0, overflow: 'hidden', width: '100%' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                         <span style={{ fontSize: '9.5px', fontWeight: 800, color: '#38BDF8', letterSpacing: '0.04em' }}>
-                          {task.kind === 'BUILD_PAGE' || task.kind === 'CLONE_PAGE'
+                          {task.kind === 'BUILD_PAGE' || task.kind === 'CLONE_PAGE' || task.kind === 'EDIT_PAGE'
                             ? 'WEBPAGE ARTIFACT'
                             : task.kind === 'SAVE_INSPO'
                             ? 'INSPIRATION SAVED'
@@ -270,9 +270,9 @@ export const AgentsNotchView: React.FC<AgentsNotchViewProps> = ({
                         <button
                           onClick={() => {
                             if (onOpenGeneratedPage) {
-                              onOpenGeneratedPage(task.generatedHtml!);
+                              onOpenGeneratedPage(task.generatedHtml!, task.artifactFile);
                             } else if (typeof window !== 'undefined' && (window as any).hitodamaAPI?.openGeneratedPage) {
-                              (window as any).hitodamaAPI.openGeneratedPage(task.generatedHtml!);
+                              (window as any).hitodamaAPI.openGeneratedPage(task.generatedHtml!, task.artifactFile);
                             } else {
                               const blob = new Blob([task.generatedHtml!], { type: 'text/html' });
                               window.open(URL.createObjectURL(blob), '_blank');

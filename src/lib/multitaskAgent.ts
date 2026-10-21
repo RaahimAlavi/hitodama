@@ -7,6 +7,7 @@ export type TaskStatus = 'RUNNING' | 'WAITING' | 'COMPLETED' | 'FAILED';
 export type TaskKind =
   | 'CLONE_PAGE'
   | 'BUILD_PAGE'
+  | 'EDIT_PAGE'
   | 'SAVE_INSPO'
   | 'NOTION_DATABASE'
   | 'DATA_FETCH'
@@ -336,30 +337,29 @@ class MultitaskAgentManager {
     return true;
   }
 
-  /**
-   * Accurate Intent Classifier:
-   * Distinguishes Notion databases / research Lists from actual Website Building or Screen Cloning!
-   */
+  // Returns the most recently built or cloned website task so follow-up commands can edit it in-place
+  public getLatestGeneratedPageTask(): AgentTask | undefined {
+    return this.tasks.find(
+      (t) =>
+        (t.kind === 'BUILD_PAGE' || t.kind === 'CLONE_PAGE' || t.kind === 'EDIT_PAGE') &&
+        Boolean(t.generatedHtml)
+    );
+  }
+
   public detectTaskKind(prompt: string): TaskKind {
     const lower = prompt.toLowerCase();
+    const hasPreviousPage = Boolean(this.getLatestGeneratedPageTask());
 
-    // 1. Notion Database / Workspace Table / Award Website Collection in Notion
+    // 1. Notion Database / Workspace Table
     if (
-      lower.includes('notion') ||
-      lower.includes('database') ||
-      (lower.includes('list of') && lower.includes('website')) ||
-      lower.includes('from awards') ||
-      lower.includes('awwwards')
-    ) {
-      if (
-        lower.includes('database') ||
+      (lower.includes('notion') || lower.includes('database')) &&
+      (lower.includes('database') ||
         lower.includes('notion') ||
         lower.includes('table') ||
         lower.includes('list') ||
-        lower.includes('awards')
-      ) {
-        return 'NOTION_DATABASE';
-      }
+        lower.includes('awards'))
+    ) {
+      return 'NOTION_DATABASE';
     }
 
     // 2. Save current screen page to Inspiration DB
@@ -370,7 +370,19 @@ class MultitaskAgentManager {
       return 'SAVE_INSPO';
     }
 
-    // 3. Clone / Replicate the exact website currently visible on screen
+    // 3. Iterative Edit on the Previously Generated Website / File
+    if (
+      hasPreviousPage &&
+      (/(change|edit|update|modify|replace|remove|delete|fix|adjust|tweak|make\s+the|add\s+a|add\s+an|in\s+the\s+website|on\s+the\s+page|to\s+the\s+landing\s+page|previous\s+page|that\s+website)/i.test(
+        lower
+      ) &&
+        !lower.includes('exact same') &&
+        !lower.includes('clone'))
+    ) {
+      return 'EDIT_PAGE';
+    }
+
+    // 4. Clone / Replicate the exact website currently visible on screen
     if (
       lower.includes('exact same') ||
       lower.includes('like this') ||
@@ -384,7 +396,7 @@ class MultitaskAgentManager {
       return 'CLONE_PAGE';
     }
 
-    // 4. Build a standalone new website/landing page (ONLY when not asking for a Notion database)
+    // 5. Build a standalone new website/landing page
     if (
       (lower.includes('create') || lower.includes('build') || lower.includes('make') || lower.includes('design') || lower.includes('generate')) &&
       (lower.includes('landing page') || lower.includes('website') || lower.includes('webpage') || lower.includes('ui') || lower.includes('portfolio')) &&
@@ -446,7 +458,9 @@ class MultitaskAgentManager {
     const kind = options?.kind || this.detectTaskKind(prompt);
 
     const initialStep =
-      kind === 'CLONE_PAGE'
+      kind === 'EDIT_PAGE'
+        ? 'Loading existing website codebase & analyzing requested edits...'
+        : kind === 'CLONE_PAGE'
         ? 'Capturing live website on screen for visual cloning...'
         : kind === 'NOTION_DATABASE'
         ? 'Researching entries & structuring Notion database...'
@@ -649,57 +663,208 @@ Return ONLY valid JSON in this exact format:
       }
 
       // ======================================================================
-      // WORKFLOW 2: CLONE THE EXACT WEBSITE CURRENTLY ON SCREEN (OR BUILD CUSTOM)
+      // WORKFLOW 2A: ITERATIVE IN-PLACE EDIT OF PREVIOUSLY GENERATED WEBSITE
       // ======================================================================
-      if (task.kind === 'CLONE_PAGE' || task.kind === 'BUILD_PAGE') {
-        let screenshot = preCapturedScreenshot || '';
-        let pageTitle = '';
+      if (task.kind === 'EDIT_PAGE') {
+        const previousPageTask = this.getLatestGeneratedPageTask();
+        if (!previousPageTask || !previousPageTask.generatedHtml) {
+          throw new Error('No previously generated website found to edit.');
+        }
 
-        // Always capture the live screen if cloning or if user references "this website/page"
-        const shouldCaptureScreen =
-          task.kind === 'CLONE_PAGE' ||
-          /\b(this|same|like|current|screen)\b/i.test(task.prompt);
+        const existingFilePath = previousPageTask.artifactFile;
 
-        if (!screenshot && shouldCaptureScreen && api?.captureScreen) {
-          this.updateTask(task.id, {
-            status: 'RUNNING',
-            progress: 20,
-            stepText: 'Capturing live screenshot of the website on your screen...',
-          });
+        this.updateTask(task.id, {
+          status: 'RUNNING',
+          progress: 26,
+          stepText: 'Loading existing website codebase & analyzing requested edits...',
+        });
+
+        // If user says "make the header like this site on my screen", also grab screen + Design MCP!
+        let refScreenshot = '';
+        let designMcpBlock = '';
+        if (/\b(this|screen|like\s+this)\b/i.test(task.prompt) && api?.captureScreen) {
           const [cap, ctxInfo] = await Promise.all([
             api.captureScreen(),
-            api.getActivePageContext ? api.getActivePageContext() : Promise.resolve({ title: '' }),
+            api.getActivePageContext ? api.getActivePageContext() : Promise.resolve({ url: '', title: '' }),
           ]);
-          if (cap?.success && cap.image) {
-            screenshot = cap.image;
-          }
-          if (ctxInfo?.title) {
-            pageTitle = ctxInfo.title;
+          if (cap?.success && cap.image) refScreenshot = cap.image;
+          if (ctxInfo?.url && api?.inspectWebsiteDesign) {
+            const mcpRes = await api.inspectWebsiteDesign(ctxInfo.url);
+            if (mcpRes?.success && mcpRes.designSpec) {
+              designMcpBlock = `\nReferenced Live Website Design Tokens:\n${JSON.stringify(mcpRes.designSpec, null, 2)}`;
+            }
           }
         }
 
         this.updateTask(task.id, {
           status: 'WAITING',
-          progress: 45,
-          stepText: screenshot
+          progress: 58,
+          stepText: 'Applying code modifications to your HTML file...',
+        });
+
+        const editPrompt = `You are an elite frontend engineer editing an existing single-file HTML5 + Tailwind CSS website.
+User's requested modification: "${task.prompt}"
+${designMcpBlock}
+
+EXISTING HTML CODEBASE:
+\`\`\`html
+${previousPageTask.generatedHtml}
+\`\`\`
+
+CRITICAL INSTRUCTIONS:
+1. Keep all existing sections, layout, and styling intact EXCEPT where the user asked for changes, additions, or improvements in "${task.prompt}".
+2. Apply the user's requested changes accurately and completely.
+3. Return ONLY the complete, updated <!DOCTYPE html>...</html> code with no markdown backticks.`;
+
+        const updatedHtml = await generateCustomHtmlWithGemini(
+          editPrompt,
+          apiKey,
+          refScreenshot || undefined
+        );
+
+        if (!updatedHtml) {
+          throw new Error('Could not apply edits. Check your Gemini API key.');
+        }
+
+        this.updateTask(task.id, {
+          status: 'RUNNING',
+          progress: 90,
+          stepText: 'Saving updated file & refreshing browser preview...',
+        });
+
+        let savedPath = existingFilePath;
+        if (api?.openGeneratedPage) {
+          const openRes = await api.openGeneratedPage(updatedHtml, existingFilePath);
+          if (openRes?.path) savedPath = openRes.path;
+        }
+
+        // Also update the previous task's HTML so future edits stack cleanly
+        this.updateTask(previousPageTask.id, {
+          generatedHtml: updatedHtml,
+          artifactFile: savedPath,
+        });
+
+        this.stopSmoothProgress(task.id);
+        this.updateTask(task.id, {
+          status: 'COMPLETED',
+          progress: 100,
+          stepText: 'Website updated in browser',
+          resultText: `Updated existing website file with: "${task.prompt}".`,
+          generatedHtml: updatedHtml,
+          artifactFile: savedPath,
+        });
+        soundFX.playSuccessChime();
+        return;
+      }
+
+      // ======================================================================
+      // WORKFLOW 2B: DESIGN MCP + VISION CLONER & CUSTOM WEBSITE BUILDER
+      // ======================================================================
+      if (task.kind === 'CLONE_PAGE' || task.kind === 'BUILD_PAGE') {
+        let screenshot = preCapturedScreenshot || '';
+        let pageTitle = '';
+        let activeUrl = '';
+        let designMcpSpec: any = null;
+
+        const shouldInspectScreen =
+          task.kind === 'CLONE_PAGE' ||
+          /\b(this|same|like|current|screen|clone|replicate)\b/i.test(task.prompt);
+
+        if (shouldInspectScreen && api) {
+          this.updateTask(task.id, {
+            status: 'RUNNING',
+            progress: 18,
+            stepText: 'Capturing screen & reading active browser URL...',
+          });
+
+          const [cap, ctxInfo] = await Promise.all([
+            !screenshot && api.captureScreen ? api.captureScreen() : Promise.resolve({ success: true, image: screenshot }),
+            api.getActivePageContext ? api.getActivePageContext() : Promise.resolve({ title: '', url: '' }),
+          ]);
+
+          if (cap?.success && cap.image) screenshot = cap.image;
+          if (ctxInfo?.title) pageTitle = ctxInfo.title;
+          if (ctxInfo?.url) activeUrl = ctxInfo.url;
+
+          // If the browser didn't expose the URL bar directly, resolve the site URL from its window title via Tavily
+          if (!activeUrl && pageTitle && !pageTitle.toLowerCase().includes('new tab')) {
+            const foundViaSearch = await searchTavily(pageTitle, { depth: 'basic', maxResults: 1 });
+            if (foundViaSearch?.results?.[0]?.url) {
+              activeUrl = foundViaSearch.results[0].url;
+            }
+          }
+
+          // Run Design MCP Inspector on the target URL to extract live CSS variables, fonts, colors & DOM structure!
+          if (activeUrl && api.inspectWebsiteDesign) {
+            this.updateTask(task.id, {
+              status: 'RUNNING',
+              progress: 36,
+              stepText: `Inspecting live CSS tokens, fonts & DOM structure from ${new URL(activeUrl).hostname}...`,
+            });
+            const mcpRes = await api.inspectWebsiteDesign(activeUrl);
+            if (mcpRes?.success && mcpRes.designSpec) {
+              designMcpSpec = mcpRes.designSpec;
+            }
+          }
+        }
+
+        // If user named a specific brand/website in a BUILD_PAGE prompt (e.g. "make a website like Linear / Stripe"), inspect it too!
+        if (!designMcpSpec && /\blike\s+([a-zA-Z0-9.-]+)/i.test(task.prompt)) {
+          const brandMatch = task.prompt.match(/\blike\s+([a-zA-Z0-9.-]+)/i);
+          if (brandMatch?.[1]) {
+            const searchRes = await searchTavily(`${brandMatch[1]} official website`, { depth: 'basic', maxResults: 1 });
+            const resolvedUrl = searchRes?.results?.[0]?.url;
+            if (resolvedUrl && api?.inspectWebsiteDesign) {
+              this.updateTask(task.id, {
+                status: 'RUNNING',
+                progress: 36,
+                stepText: `Inspecting ${brandMatch[1]}'s live CSS tokens, fonts & codebase...`,
+              });
+              const mcpRes = await api.inspectWebsiteDesign(resolvedUrl);
+              if (mcpRes?.success && mcpRes.designSpec) {
+                designMcpSpec = mcpRes.designSpec;
+              }
+            }
+          }
+        }
+
+        this.updateTask(task.id, {
+          status: 'WAITING',
+          progress: 55,
+          stepText: designMcpSpec
+            ? `Synthesizing replica using extracted CSS tokens, ${designMcpSpec.fonts?.[0] || 'brand'} fonts & vision...`
+            : screenshot
             ? `Reverse-engineering layout, colors & typography from ${pageTitle || 'screen'}...`
             : 'Designing custom layout, color system & interactive components...',
         });
 
-        const visionClonePrompt = screenshot
-          ? `You are an elite frontend engineer. Look closely at the attached screenshot of the website currently on the user's screen${pageTitle ? ` ("${pageTitle}")` : ''}.
-User instruction: "${task.prompt}"
+        const designMcpContext = designMcpSpec
+          ? `\nLIVE EXTRACTED DESIGN MCP METADATA & CODEBASE TOKENS FROM ${designMcpSpec.url}:
+- Page Title: ${designMcpSpec.title}
+- Meta Description: ${designMcpSpec.description}
+- Exact Font Families Used: ${designMcpSpec.fonts.join(', ') || 'Geometric Sans'}
+- Extracted CSS Custom Properties (:root): ${designMcpSpec.cssVariables.slice(0, 20).join(' | ')}
+- Dominant Hex Color Palette: ${designMcpSpec.topColors.join(', ')}
+- Navigation Bar Links: ${designMcpSpec.navLinks.join(' · ')}
+- Real Page Headings (H1/H2/H3): ${designMcpSpec.headings.join(' | ')}
+- Primary CTA Buttons: ${designMcpSpec.buttons.join(', ')}
+- Semantic DOM Section Skeleton: ${designMcpSpec.sections.join(' -> ')}\n`
+          : '';
 
-CRITICAL INSTRUCTIONS — DO NOT USE A GENERIC TEMPLATE:
-1. Extract the EXACT background color (whether it is stark white #FFFFFF, warm cream, pastel, brutalist, or dark), text colors, primary/secondary brand accent colors, and border styles directly from the attached screenshot.
-2. Replicate the exact navigation bar layout (logo placement, links, CTA button shape/color), hero section alignment (left-aligned split hero, centered editorial, bento grid, 3D showcase, etc.), font pairing (serif, geometric sans, or monospace), and card grid structure shown in the screenshot.
-3. Incorporate any specific changes or ideas the user asked for in "${task.prompt}".
-4. Output a complete, self-contained single-file HTML5 document using <script src="https://cdn.tailwindcss.com"></script> and Google Fonts.
+        const visionClonePrompt =
+          screenshot || designMcpSpec
+            ? `You are an elite frontend engineer with Design MCP codebase access and visual perception.
+User instruction: "${task.prompt}"
+${designMcpContext}
+CRITICAL INSTRUCTIONS — REPLICATE THE EXACT TARGET DESIGN:
+1. Use the exact extracted CSS custom properties, hex color palette (whether light mode, cream, dark mode, or colorful), and Google Fonts listed in the Design MCP metadata AND shown in the screenshot.
+2. Replicate the exact navigation bar links, hero heading copy/hierarchy, button shapes, border radii, and section structure.
+3. Apply any custom tweaks or ideas the user requested in "${task.prompt}".
+4. Output a complete, self-contained single-file HTML5 document using <script src="https://cdn.tailwindcss.com"></script> and the exact Google Fonts.
 5. Return ONLY raw <!DOCTYPE html>...</html> code with no markdown backticks.`
-          : `You are an elite frontend engineer. Build a unique, custom single-file HTML5 + Tailwind CSS website for: "${task.prompt}".
-CRITICAL INSTRUCTIONS — DO NOT USE A REPEATED GENERIC TEMPLATE:
-1. Choose a bespoke color palette, typography pairing (Google Fonts), and layout architecture specifically tailored to "${task.prompt}" (e.g., warm editorial cream & serif for coffee/fashion/art; crisp light-mode Swiss grid for productivity/finance; vibrant neon brutalist for gaming/agency; etc.).
-2. Build a complete multi-section page: custom navbar, distinctive hero section with interactive preview mockup, feature showcase, testimonials/metrics, and footer.
+            : `You are an elite frontend engineer. Build a unique, custom single-file HTML5 + Tailwind CSS website for: "${task.prompt}".
+1. Choose a bespoke color palette, Google Fonts pairing, and layout architecture tailored specifically to "${task.prompt}".
+2. Build a complete multi-section page: custom navbar, distinctive hero section with interactive UI mockup, feature bento/grid, and footer.
 3. Include <script src="https://cdn.tailwindcss.com"></script>.
 4. Return ONLY raw <!DOCTYPE html>...</html> code with no markdown backticks.`;
 
@@ -715,12 +880,14 @@ CRITICAL INSTRUCTIONS — DO NOT USE A REPEATED GENERIC TEMPLATE:
 
         this.updateTask(task.id, {
           status: 'RUNNING',
-          progress: 88,
+          progress: 90,
           stepText: 'Launching live website in your browser...',
         });
 
+        let savedFilePath: string | undefined;
         if (api?.openGeneratedPage) {
-          await api.openGeneratedPage(htmlCode);
+          const openRes = await api.openGeneratedPage(htmlCode);
+          if (openRes?.path) savedFilePath = openRes.path;
         }
 
         this.stopSmoothProgress(task.id);
@@ -728,10 +895,13 @@ CRITICAL INSTRUCTIONS — DO NOT USE A REPEATED GENERIC TEMPLATE:
           status: 'COMPLETED',
           progress: 100,
           stepText: 'Live in browser',
-          resultText: screenshot
+          resultText: designMcpSpec
+            ? `Cloned ${designMcpSpec.title || 'website'} using live CSS tokens, fonts & vision.`
+            : screenshot
             ? `Cloned visual layout & palette from ${pageTitle || 'active screen'}.`
             : `Built custom website for "${task.prompt}".`,
           generatedHtml: htmlCode,
+          artifactFile: savedFilePath,
         });
         soundFX.playSuccessChime();
         return;

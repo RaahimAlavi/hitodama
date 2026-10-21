@@ -162,8 +162,10 @@ contextBridge.exposeInMainWorld('hitodamaAPI', {
     ipcRenderer.on('context-app-detected', listener);
     return () => ipcRenderer.removeListener('context-app-detected', listener);
   },
-  openGeneratedPage: (htmlContent) => ipcRenderer.invoke('open-generated-page', htmlContent),
+  openGeneratedPage: (htmlContent, existingFilePath) =>
+    ipcRenderer.invoke('open-generated-page', htmlContent, existingFilePath),
   getActivePageContext: () => ipcRenderer.invoke('get-active-page-context'),
+  inspectWebsiteDesign: (targetUrl) => ipcRenderer.invoke('inspect-website-design', targetUrl),
   syncToNotion: (payload) => ipcRenderer.invoke('sync-to-notion', payload),
   playSpotify: (query, targetType) => ipcRenderer.invoke('play-spotify', query, targetType),
 });
