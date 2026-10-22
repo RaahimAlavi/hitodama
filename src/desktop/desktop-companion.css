@@ -4019,3 +4019,29 @@ button:focus-visible,
   margin-left: auto;
   padding-left: 6px;
 }
+
+.companion-todo-del-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: #71717A;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  flex-shrink: 0;
+  padding: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.companion-todo-row:hover .companion-todo-del-btn {
+  opacity: 1;
+}
+
+.companion-todo-del-btn:hover {
+  background: rgba(239, 68, 68, 0.16);
+  color: #F87171;
+}

@@ -200,6 +200,92 @@ interface ScheduledRoutine {
   command: string;
 }
 
+// Maps any media app or streaming platform to its official brand logo color & gradient when cover art is unavailable
+function getMediaAppBrandPalette(source?: string, artist?: string, title?: string): {
+  accent: string;
+  rgb: string;
+  gradient: string;
+} {
+  const combined = `${source || ''} ${artist || ''} ${title || ''}`.toLowerCase();
+
+  if (combined.includes('netflix')) {
+    return {
+      accent: '#E50914',
+      rgb: '229, 9, 20',
+      gradient: 'linear-gradient(135deg, #240406 0%, #83070D 50%, #E50914 100%)',
+    };
+  }
+  if (combined.includes('youtube')) {
+    return {
+      accent: '#FF0033',
+      rgb: '255, 0, 51',
+      gradient: 'linear-gradient(135deg, #29040B 0%, #99041F 50%, #FF0033 100%)',
+    };
+  }
+  if (combined.includes('spotify')) {
+    return {
+      accent: '#1DB954',
+      rgb: '29, 185, 84',
+      gradient: 'linear-gradient(135deg, #06210F 0%, #106F32 50%, #1DB954 100%)',
+    };
+  }
+  if (combined.includes('crunchyroll')) {
+    return {
+      accent: '#F47521',
+      rgb: '244, 117, 33',
+      gradient: 'linear-gradient(135deg, #291103 0%, #94410A 50%, #F47521 100%)',
+    };
+  }
+  if (combined.includes('twitch')) {
+    return {
+      accent: '#9146FF',
+      rgb: '145, 70, 255',
+      gradient: 'linear-gradient(135deg, #180930 0%, #52209E 50%, #9146FF 100%)',
+    };
+  }
+  if (combined.includes('soundcloud')) {
+    return {
+      accent: '#FF5500',
+      rgb: '255, 85, 0',
+      gradient: 'linear-gradient(135deg, #2B0E02 0%, #993300 50%, #FF5500 100%)',
+    };
+  }
+  if (combined.includes('apple') || combined.includes('itunes')) {
+    return {
+      accent: '#FA243C',
+      rgb: '250, 36, 60',
+      gradient: 'linear-gradient(135deg, #2B060B 0%, #961222 50%, #FA243C 100%)',
+    };
+  }
+  if (combined.includes('prime') || combined.includes('amazon')) {
+    return {
+      accent: '#00A8E1',
+      rgb: '0, 168, 225',
+      gradient: 'linear-gradient(135deg, #041B26 0%, #026082 50%, #00A8E1 100%)',
+    };
+  }
+  if (combined.includes('disney')) {
+    return {
+      accent: '#0063E5',
+      rgb: '0, 99, 229',
+      gradient: 'linear-gradient(135deg, #041029 0%, #043885 50%, #0063E5 100%)',
+    };
+  }
+  if (combined.includes('vlc')) {
+    return {
+      accent: '#FF8800',
+      rgb: '255, 136, 0',
+      gradient: 'linear-gradient(135deg, #2B1702 0%, #944F00 50%, #FF8800 100%)',
+    };
+  }
+
+  return {
+    accent: '#5CB8FF',
+    rgb: '92, 184, 255',
+    gradient: 'linear-gradient(135deg, #0B1929 0%, #1B4975 50%, #5CB8FF 100%)',
+  };
+}
+
 // Offscreen Canvas Dynamic Color Extractor
 function extractPaletteFromImageElement(img: HTMLImageElement): {
   accent: string;
@@ -1272,9 +1358,14 @@ export const HitodamaApp: React.FC = () => {
     thumbnail: '',
     durationSec: 210,
   });
-  const [mediaArtPalette, setMediaArtPalette] = useState<{ accent: string; rgb: string }>({
-    accent: '#A855F7',
-    rgb: '168, 85, 247',
+  const [mediaArtPalette, setMediaArtPalette] = useState<{
+    accent: string;
+    rgb: string;
+    gradient: string;
+  }>({
+    accent: '#5CB8FF',
+    rgb: '92, 184, 255',
+    gradient: 'linear-gradient(135deg, #0B1929 0%, #1B4975 50%, #5CB8FF 100%)',
   });
 
     const hasMediaSession = Boolean(osMedia.hasSession && osMedia.title);
@@ -1317,25 +1408,42 @@ export const HitodamaApp: React.FC = () => {
   }, [activeMediaTitle]);
 
   // Extract dominant color from the song cover image
+    // Extract dominant color from the song cover image, or use the app's brand logo color when no cover exists
   useEffect(() => {
+    const brandFallback = getMediaAppBrandPalette(
+      osMedia.source,
+      activeMediaArtist,
+      activeMediaTitle
+    );
+
     if (!activeMediaArtwork) {
-      setMediaArtPalette({ accent: '#A855F7', rgb: '168, 85, 247' });
+      setMediaArtPalette(brandFallback);
       return;
     }
+
     const img = new Image();
     img.crossOrigin = 'Anonymous';
     img.onload = () => {
       const pal = extractPaletteFromImageElement(img);
       if (pal) {
         const hex = pal.accent.replace('#', '');
-        const r = parseInt(hex.substring(0, 2), 16) || 168;
-        const g = parseInt(hex.substring(2, 4), 16) || 85;
-        const b = parseInt(hex.substring(4, 6), 16) || 247;
-        setMediaArtPalette({ accent: pal.accent, rgb: `${r}, ${g}, ${b}` });
+        const r = parseInt(hex.substring(0, 2), 16) || 92;
+        const g = parseInt(hex.substring(2, 4), 16) || 184;
+        const b = parseInt(hex.substring(4, 6), 16) || 255;
+        setMediaArtPalette({
+          accent: pal.accent,
+          rgb: `${r}, ${g}, ${b}`,
+          gradient: `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 0.45) 0%, ${pal.accent} 100%)`,
+        });
+      } else {
+        setMediaArtPalette(brandFallback);
       }
     };
+    img.onerror = () => {
+      setMediaArtPalette(brandFallback);
+    };
     img.src = activeMediaArtwork;
-  }, [activeMediaArtwork]);
+  }, [activeMediaArtwork, osMedia.source, activeMediaArtist, activeMediaTitle]);
 
   // Real PC Controls & Scrollable Dropdown Menus State
   const [activeControlDropdown, setActiveControlDropdown] = useState<ControlDropdownType>(null);
@@ -3491,6 +3599,12 @@ export const HitodamaApp: React.FC = () => {
     }
   };
 
+  const handleDeleteTodo = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    soundFX.playToggle(false);
+    setTodos((prev) => prev.filter((t) => t.id !== id));
+  };
+
   const triggerClipboardToast = (msg: string) => {
     setClipboardToast(msg);
     setTimeout(() => setClipboardToast(null), 1600);
@@ -4720,8 +4834,14 @@ export const HitodamaApp: React.FC = () => {
                 className="mini-media-album-thumb"
                 style={
                   activeMediaArtwork
-                    ? { backgroundImage: `url("${activeMediaArtwork}")`, backgroundSize: 'cover', backgroundPosition: 'center' }
-                    : undefined
+                    ? {
+                        backgroundImage: `url("${activeMediaArtwork}")`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                      }
+                    : {
+                        background: mediaArtPalette.gradient,
+                      }
                 }
               />
               <div className="mini-media-eq-bars">
@@ -4814,8 +4934,14 @@ export const HitodamaApp: React.FC = () => {
                   className="companion-album-art compact"
                   style={
                     activeMediaArtwork
-                      ? { backgroundImage: `url("${activeMediaArtwork}")`, backgroundSize: 'cover', backgroundPosition: 'center' }
-                      : undefined
+                      ? {
+                          backgroundImage: `url("${activeMediaArtwork}")`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                        }
+                      : {
+                          background: mediaArtPalette.gradient,
+                        }
                   }
                 />
                 <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
@@ -5257,8 +5383,14 @@ export const HitodamaApp: React.FC = () => {
                             className="companion-album-art"
                             style={
                               activeMediaArtwork
-                                ? { backgroundImage: `url("${activeMediaArtwork}")`, backgroundSize: 'cover', backgroundPosition: 'center' }
-                                : undefined
+                                ? {
+                                    backgroundImage: `url("${activeMediaArtwork}")`,
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center',
+                                  }
+                                : {
+                                    background: mediaArtPalette.gradient,
+                                  }
                             }
                           />
 
@@ -5530,12 +5662,12 @@ export const HitodamaApp: React.FC = () => {
                         </div>
 
                         <div className="today-todo-scroll-list">
-                        {todos.map((todo) => (
+                          {todos.map((todo) => (
                             <div
                               key={todo.id}
                               onClick={() => handleToggleTodo(todo.id)}
                               className={`companion-todo-row ${todo.completed ? 'completed' : ''}`}
-                              style={{ position: 'relative', overflow: 'visible' }}
+                              style={{ position: 'relative', flexShrink: 0 }}
                             >
                               {sparkleBurstId === todo.id && (
                                 <div key={sparkleAnimKey} className="todo-sparkle-burst">
@@ -5552,6 +5684,7 @@ export const HitodamaApp: React.FC = () => {
                                   </span>
                                 </div>
                               )}
+
                               <span className={`companion-todo-check ${todo.completed ? 'checked' : ''}`}>
                                 {todo.completed && (
                                   <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -5559,13 +5692,30 @@ export const HitodamaApp: React.FC = () => {
                                   </svg>
                                 )}
                               </span>
+
                               <span className="companion-todo-text">{todo.text}</span>
+
                               {!todo.completed && (
                                 <span className="todo-inline-ember-gain">
                                   <SvgIcon name="ember" size={10} color="#FFA94D" />
                                   <span>+4</span>
                                 </span>
                               )}
+
+                              <button
+                                onClick={(e) => handleDeleteTodo(todo.id, e)}
+                                className="companion-todo-del-btn"
+                                title="Delete task"
+                              >
+                                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                  <path
+                                    d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5"
+                                    stroke="currentColor"
+                                    strokeWidth="1.5"
+                                    strokeLinecap="round"
+                                  />
+                                </svg>
+                              </button>
                             </div>
                           ))}
                         </div>

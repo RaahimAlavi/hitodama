@@ -986,7 +986,7 @@ function Await-WinRT($WinRtTask, $ResultType) {
 # Helper: If Netflix is open in a browser and only reports "Netflix", read the real episode title from the player UI
 function Get-NetflixEpisodeTitle {
   try {
-    $browsers = @(Get-Process chrome, msedge, brave, opera, firefox -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -match '(?i)Netflix' })
+    $browsers = @(Get-Process chrome, msedge, brave, opera, firefox -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 })
     foreach ($b in $browsers) {
       $el = [System.Windows.Automation.AutomationElement]::FromHandle($b.MainWindowHandle)
       if ($el) {
@@ -995,10 +995,19 @@ function Get-NetflixEpisodeTitle {
           [System.Windows.Automation.ControlType]::Text
         )
         $texts = $el.FindAll([System.Windows.Automation.TreeScope]::Descendants, $cond)
+        $names = @()
         foreach ($t in $texts) {
           $n = $t.Current.Name
-          if ($n -and ($n -match '\\bE\\d+\\b' -or $n -match '\\bS\\d+:E\\d+\\b' -or $n -match '\\bEpisode\\s+\\d+')) {
-            return $n.Trim()
+          if ($n -and $n.Trim().Length -gt 0) {
+            $names += $n.Trim()
+          }
+        }
+        for ($i = 0; $i -lt $names.Count; $i++) {
+          if ($names[$i] -match '^(S\\d+:)?E\\d+$' -or $names[$i] -match '^Episode\\s+\\d+') {
+            $showName = if ($i -gt 0 -and $names[$i - 1].Length -gt 1 -and $names[$i - 1] -notmatch '^\\d+:\\d+$') { $names[$i - 1] } else { "" }
+            $epName = if (($i + 1) -lt $names.Count -and $names[$i + 1].Length -gt 1 -and $names[$i + 1] -notmatch '^\\d+:\\d+$') { $names[$i + 1] } else { "" }
+            $combined = @($showName, $names[$i], $epName) | Where-Object { $_ -ne "" }
+            return ($combined -join " · ")
           }
         }
       }
