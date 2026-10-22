@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { gsap } from 'gsap';
 import { SOUL_SKINS, SoulConfig } from '../lib/soulMath';
 import { SoulCanvas } from '../components/SoulCanvas';
+import { LivingEmberIcon } from '../components/LivingEmberIcon';
 import { queryGemini, cleanDictation, transcribeAudioWithGeminiAPI, askLassoWithGemini } from '../lib/gemini';
 import { soundFX } from '../lib/soundFX';
 import { voiceEngine, HitodamaVoiceName } from '../lib/voiceEngine';
@@ -1276,11 +1277,11 @@ export const HitodamaApp: React.FC = () => {
     rgb: '168, 85, 247',
   });
 
-  const hasMediaSession = osMedia.hasSession || isPlayingLofi;
-  const isPlayingMedia = osMedia.playing || isPlayingLofi;
-  const activeMediaTitle = osMedia.hasSession && osMedia.title ? osMedia.title : 'lofi beats to study and relax';
-  const activeMediaArtist = osMedia.hasSession && osMedia.artist ? osMedia.artist : 'lofi radio';
-  const activeMediaArtwork = osMedia.hasSession && osMedia.thumbnail ? osMedia.thumbnail : '';
+    const hasMediaSession = Boolean(osMedia.hasSession && osMedia.title);
+  const isPlayingMedia = Boolean(osMedia.hasSession && osMedia.playing);
+  const activeMediaTitle = osMedia.title || '';
+  const activeMediaArtist = osMedia.artist || osMedia.source || '';
+  const activeMediaArtwork = osMedia.thumbnail || '';
 
   const [mediaProgress, setMediaProgress] = useState(0);
   const totalMediaDuration = osMedia.hasSession && osMedia.durationSec ? osMedia.durationSec : 210;
@@ -1648,7 +1649,6 @@ export const HitodamaApp: React.FC = () => {
   // Embers Forge Status: Daily Flame Bonus & Waiting Status
   const isDailyEmberWaiting = dailyEmberClaimedDate !== new Date().toDateString();
   const isEmberWaiting = isDailyEmberWaiting || (rewardedTaskIds.length < 5 && todos.some((t) => !t.completed));
-  const [emberToast, setEmberToast] = useState<{ amount: number; label: string } | null>(null);
 
   const handleClaimWaitingEmber = useCallback(() => {
     const today = new Date().toDateString();
@@ -1670,16 +1670,8 @@ export const HitodamaApp: React.FC = () => {
     (amount = 5000) => {
       addEmbers(amount);
       soundFX.playFanfare();
-      setEmberToast({ amount, label: 'Creator Testing Embers Stoked!' });
-      setTimeout(() => setEmberToast(null), 2500);
-
-      setHitodamaReply({
-        bold: '🔥 Creator Embers Granted!',
-        rest: `+${amount.toLocaleString()} testing fuel stoked into your forge`,
-      });
-      speakAsHitodama(`Creator embers granted! ${amount.toLocaleString()} fiery embers stoked into your forge.`);
     },
-    [addEmbers, speakAsHitodama]
+    [addEmbers]
   );
 
   // Sync embers state to Electron Windows System Tray
@@ -4910,31 +4902,6 @@ export const HitodamaApp: React.FC = () => {
                   })}
                 </div>
                 <div className="companion-header-actions">
-                  <div
-                    className={`companion-header-ember-pill ${isSoulDull ? 'is-dull' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (e.altKey || e.detail === 3) {
-                        handleGrantCreatorEmbers(5000);
-                        return;
-                      }
-                      if (isDailyEmberWaiting) {
-                        handleClaimWaitingEmber();
-                      } else {
-                        setShowCompanionWindow(true);
-                        setCompanionDockTab('soul');
-                      }
-                    }}
-                    title={
-                      isDailyEmberWaiting
-                        ? 'Daily Ember Waiting! Click to claim +15 (Alt+Click for Creator Mode)'
-                        : `${embers.toLocaleString()} Embers (Click to open Soul Deck · Alt+Click for Creator Mode)`
-                    }
-                  >
-                    <SvgIcon name="ember" size={13} color={isSoulDull ? '#94A3B8' : '#FFA94D'} />
-                    <span>{embers.toLocaleString()}</span>
-                  </div>
-
                   {activeTab === 'Wallpaper' && (
                     <button
                       onClick={handlePickLocalWallpapers}
@@ -5148,33 +5115,6 @@ export const HitodamaApp: React.FC = () => {
                             )}
                           </button>
                         ))}
-                        <button
-                          onClick={() => {
-                            toggleMediaPlayback();
-                            setActiveControlDropdown(null);
-                          }}
-                          className="audio-device-option"
-                          style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: '4px', paddingTop: '8px' }}
-                        >
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            {isPlayingMedia ? (
-                              <>
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                                  <rect x="6" y="4" width="4" height="16" rx="1" />
-                                  <rect x="14" y="4" width="4" height="16" rx="1" />
-                                </svg>
-                                <span>Pause Media</span>
-                              </>
-                            ) : (
-                              <>
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-                                  <polygon points="5 3 19 12 5 21 5 3" />
-                                </svg>
-                                <span>Play Lofi Stream</span>
-                              </>
-                            )}
-                          </span>
-                        </button>
                       </div>
                     )}
 
@@ -6459,32 +6399,19 @@ export const HitodamaApp: React.FC = () => {
             )}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {(activeDeckSlot || companionDockTab === 'soul' || isEmberWaiting) && (
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (isDailyEmberWaiting) {
-                      handleClaimWaitingEmber();
-                    } else {
-                      // Creator instant testing on click (+5,000)
-                      handleGrantCreatorEmbers(5000);
-                    }
-                  }}
-                  className={`embers-currency-pill ${isEmberWaiting ? 'waiting-spark' : ''}`}
-                  title={
-                    isDailyEmberWaiting
-                      ? 'Daily Ember Waiting! Click to claim +15 Embers'
-                      : 'Embers Forge Balance · Click for Creator Stoke (+5,000)'
-                  }
-                >
-                  <SvgIcon name="ember" size={13} color="#FFA94D" />
-                  <span className="ember-count-text">{embers.toLocaleString()}</span>
-                  <span className="ember-label">embers</span>
-                  {isDailyEmberWaiting && (
-                    <span className="ember-waiting-badge">1 Ready</span>
-                  )}
-                </div>
-              )}
+              <div
+                className="embers-currency-pill"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  pointerEvents: 'none',
+                  userSelect: 'none',
+                }}
+              >
+                <LivingEmberIcon size={15} isDull={isSoulDull} />
+                <span>{embers.toLocaleString()} embers</span>
+              </div>
               <button
                 onClick={() => {
                   const next = !sfxEnabled;
@@ -6950,34 +6877,20 @@ export const HitodamaApp: React.FC = () => {
                           <div className="config-row-title">Embers Forge Balance</div>
                           <div className="config-row-desc">
                             {embers.toLocaleString()} embers available · {rewardedTaskIds.length}/5 daily task rewards claimed today
-                            {isDailyEmberWaiting && ' · ✨ Daily Ember Waiting!'}
                           </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          {isDailyEmberWaiting && (
-                            <button
-                              onClick={handleClaimWaitingEmber}
-                              className="config-pill-btn ember-claim-btn"
-                              title="Claim your +15 daily forge embers"
-                            >
-                              ✨ Claim +15
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleGrantCreatorEmbers(5000)}
-                            className="config-pill-btn config-creator-ember-btn"
-                            title="Add 5,000 Embers for testing (Creator Mode)"
-                          >
-                            ⚡ Stoke +5k
-                          </button>
-                          <span
-                            onClick={() => handleGrantCreatorEmbers(1000)}
-                            className="config-pill-btn ember-balance-pill"
-                            style={{ cursor: 'pointer' }}
-                            title="Click to test (+1,000)"
-                          >
-                            🔥 {embers.toLocaleString()} embers
-                          </span>
+                        <div
+                          className="embers-currency-pill"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '7px',
+                            pointerEvents: 'none',
+                            userSelect: 'none',
+                          }}
+                        >
+                          <LivingEmberIcon size={15} isDull={isSoulDull} />
+                          <span>{embers.toLocaleString()} embers</span>
                         </div>
                       </div>
                       <div className="config-card-row">

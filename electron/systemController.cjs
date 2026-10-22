@@ -297,13 +297,19 @@ async function resolveTrackMetadata(title, artist) {
     .replace(/\b(ft\.?|feat\.?)\b.*$/i, '')
     .trim();
   const cleanArtist = String(artist || '')
-    .replace(/^(YouTube|chrome|msedge|opera|brave|firefox|Spotify)$/i, '')
+    .replace(/^(YouTube|chrome|msedge|opera|brave|firefox|Spotify|Netflix)$/i, '')
     .trim();
 
-  const cacheKey = `${cleanArtist}__${cleanTitle}`.toLowerCase();
-  if (!cleanTitle || cleanTitle === 'System Audio Stream') {
-    return { thumbnail: '', durationSec: 210 };
+  // Never search iTunes Music for generic streaming platform names like "Netflix" or "YouTube"
+  if (
+    !cleanTitle ||
+    /^(netflix|youtube|twitch|disney\+|prime video|hulu|crunchyroll|system audio stream)$/i.test(cleanTitle) ||
+    /^netflix$/i.test(String(artist || '').trim())
+  ) {
+    return { thumbnail: '', durationSec: 1440 };
   }
+
+  const cacheKey = `${cleanArtist}__${cleanTitle}`.toLowerCase();
   if (trackMetadataCache.has(cacheKey)) {
     return trackMetadataCache.get(cacheKey);
   }
@@ -324,26 +330,6 @@ async function resolveTrackMetadata(title, artist) {
         const imgBuf = await fetchUrlBuffer(hiResUrl, 2500);
         dataUrl = `data:image/jpeg;base64,${imgBuf.toString('base64')}`;
       }
-      const meta = { thumbnail: dataUrl, durationSec };
-      trackMetadataCache.set(cacheKey, meta);
-      return meta;
-    }
-  } catch (_) {}
-
-  try {
-    const ytSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(cleanTitle)}`;
-    const htmlBuf = await fetchUrlBuffer(ytSearchUrl, 2800);
-    const htmlStr = htmlBuf.toString('utf8');
-    const idMatch = htmlStr.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
-    const lenMatch = htmlStr.match(/"lengthText":\{[^}]*"simpleText":"(\d+):(\d+)"/);
-    let durationSec = 210;
-    if (lenMatch) {
-      durationSec = parseInt(lenMatch[1], 10) * 60 + parseInt(lenMatch[2], 10);
-    }
-    if (idMatch && idMatch[1]) {
-      const thumbUrl = `https://i.ytimg.com/vi/${idMatch[1]}/hqdefault.jpg`;
-      const imgBuf = await fetchUrlBuffer(thumbUrl, 2500);
-      const dataUrl = `data:image/jpeg;base64,${imgBuf.toString('base64')}`;
       const meta = { thumbnail: dataUrl, durationSec };
       trackMetadataCache.set(cacheKey, meta);
       return meta;
@@ -983,188 +969,176 @@ function seekMediaSession(targetSeconds) {
 async function getNowPlayingMedia() {
   const ps = `
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
-[Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager,Windows.Media.Control,ContentType=WindowsRuntime] | Out-Null
-$asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -like 'IAsyncOperation*' })[0]
-function Await-WinRT($task, $type) {
-  $asTask = $asTaskGeneric.MakeGenericMethod($type)
-  $netTask = $asTask.Invoke($null, @($task))
-  $netTask.Wait(950) | Out-Null
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+
+$asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
+  $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -like 'IAsyncOperation*'
+})[0]
+
+function Await-WinRT($WinRtTask, $ResultType) {
+  $asTask = $asTaskGeneric.MakeGenericMethod($ResultType)
+  $netTask = $asTask.Invoke($null, @($WinRtTask))
+  $netTask.Wait(1200) | Out-Null
   $netTask.Result
 }
-try {
-  $mgr = Await-WinRT ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
-  if ($mgr) {
-    $sessions = @($mgr.GetSessions())
-    $cur = $mgr.GetCurrentSession()
-    $chosen = $null
 
-    foreach ($s in $sessions) {
-      $pb = $s.GetPlaybackInfo()
-      if ($pb -and $pb.PlaybackStatus.ToString() -eq 'Playing') {
-        $chosen = $s
-        break
+# Helper: If Netflix is open in a browser and only reports "Netflix", read the real episode title from the player UI
+function Get-NetflixEpisodeTitle {
+  try {
+    $browsers = @(Get-Process chrome, msedge, brave, opera, firefox -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -match '(?i)Netflix' })
+    foreach ($b in $browsers) {
+      $el = [System.Windows.Automation.AutomationElement]::FromHandle($b.MainWindowHandle)
+      if ($el) {
+        $cond = New-Object System.Windows.Automation.PropertyCondition(
+          [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+          [System.Windows.Automation.ControlType]::Text
+        )
+        $texts = $el.FindAll([System.Windows.Automation.TreeScope]::Descendants, $cond)
+        foreach ($t in $texts) {
+          $n = $t.Current.Name
+          if ($n -and ($n -match '\\bE\\d+\\b' -or $n -match '\\bS\\d+:E\\d+\\b' -or $n -match '\\bEpisode\\s+\\d+')) {
+            return $n.Trim()
+          }
+        }
       }
     }
-    if (-not $chosen -and $cur) {
-      $chosen = $cur
-    }
-    if (-not $chosen -and $sessions.Count -gt 0) {
-      $chosen = $sessions[0]
-    }
+  } catch {}
+  return ""
+}
 
-    if ($chosen) {
-      $props = Await-WinRT ($chosen.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
-      $pb = $chosen.GetPlaybackInfo()
-      $tl = $chosen.GetTimelineProperties()
+try {
+  [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager,Windows.Media.Control,ContentType=WindowsRuntime] | Out-Null
+  [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties,Windows.Media.Control,ContentType=WindowsRuntime] | Out-Null
+  [Windows.Storage.Streams.DataReader,Windows.Storage.Streams,ContentType=WindowsRuntime] | Out-Null
 
-      $title = if ($props -and $props.Title) { $props.Title.Trim() } else { '' }
-      $artist = if ($props -and $props.Artist) { $props.Artist.Trim() } else { '' }
-      $source = $chosen.SourceAppUserModelId
-      $status = if ($pb) { $pb.PlaybackStatus.ToString() } else { 'Closed' }
-      $pos = if ($tl) { [double]$tl.Position.TotalSeconds } else { 0.0 }
-      $dur = if ($tl -and $tl.EndTime.TotalSeconds -gt 0) { [double]$tl.EndTime.TotalSeconds } else { 210.0 }
+  $mgr = Await-WinRT ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
+  if ($mgr) {
+    $session = $mgr.GetCurrentSession()
+    if ($session) {
+      $pbInfo = $session.GetPlaybackInfo()
+      # PlaybackStatus 4 === Playing, 5 === Paused
+      $isPlaying = ($pbInfo.PlaybackStatus -eq [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionPlaybackStatus]::Playing)
+      $props = Await-WinRT ($session.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+      $tl = $session.GetTimelineProperties()
 
-      if ($title -or $artist) {
+      $title = if ($props -and $props.Title) { $props.Title.Trim() } else { "" }
+      $artist = if ($props -and $props.Artist) { $props.Artist.Trim() } else { "" }
+      $srcApp = $session.SourceAppUserModelId
+
+      # Clean up source app name
+      $cleanSource = "Media Player"
+      if ($srcApp -match '(?i)Spotify') { $cleanSource = "Spotify" }
+      elseif ($srcApp -match '(?i)Netflix') { $cleanSource = "Netflix" }
+      elseif ($srcApp -match '(?i)chrome') { $cleanSource = "Chrome" }
+      elseif ($srcApp -match '(?i)msedge') { $cleanSource = "Edge" }
+      elseif ($srcApp -match '(?i)brave') { $cleanSource = "Brave" }
+      elseif ($srcApp -match '(?i)firefox') { $cleanSource = "Firefox" }
+
+      if ($title -match '^(?i)Netflix$' -or $artist -match '^(?i)Netflix$') {
+        $epTitle = Get-NetflixEpisodeTitle
+        if ($epTitle) {
+          $title = $epTitle
+          $artist = "Netflix"
+        } else {
+          $title = "Netflix"
+          $artist = "Netflix Stream"
+        }
+      }
+
+      if (-not $artist) {
+        $artist = $cleanSource
+      }
+
+      # Read native GSMTC thumbnail bytes directly from Windows if available
+      $thumbBase64 = ""
+      if ($props -and $props.Thumbnail) {
+        try {
+          $stream = Await-WinRT ($props.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType])
+          if ($stream -and $stream.Size -gt 0 -and $stream.Size -lt 2000000) {
+            $reader = New-Object Windows.Storage.Streams.DataReader($stream.GetInputStreamAt(0))
+            [void](Await-WinRT ($reader.LoadAsync([uint32]$stream.Size)) ([uint32]))
+            $bytes = New-Object byte[]($stream.Size)
+            $reader.ReadBytes($bytes)
+            $thumbBase64 = "data:image/jpeg;base64," + [Convert]::ToBase64String($bytes)
+            $reader.Dispose()
+            $stream.Dispose()
+          }
+        } catch {}
+      }
+
+      $posSec = -1
+      $durSec = 0
+      if ($tl) {
+        if ($tl.Position.TotalSeconds -ge 0) { $posSec = [int][Math]::Round($tl.Position.TotalSeconds) }
+        if ($tl.EndTime.TotalSeconds -gt 0) { $durSec = [int][Math]::Round($tl.EndTime.TotalSeconds) }
+      }
+
+      if ($title) {
         @{
           hasSession = $true
-          playing = ($status -eq 'Playing')
+          playing = [bool]$isPlaying
           title = $title
           artist = $artist
-          source = $source
-          positionSec = [math]::Round($pos)
-          durationSec = [math]::Round($dur)
+          source = $cleanSource
+          thumbnail = $thumbBase64
+          positionSec = $posSec
+          durationSec = $durSec
         } | ConvertTo-Json -Compress
         exit
       }
     }
   }
-} catch { }
-
-$players = @(Get-Process Spotify, vlc, Music.UI, AppleMusic, wmplayer -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle })
-foreach ($p in $players) {
-  $t = $p.MainWindowTitle.Trim()
-  if ($t -and $t -notmatch '^(Spotify|Spotify Free|Spotify Premium|VLC media player|Media Player)$') {
-    $parts = $t -split '\\s+-\\s+', 2
-    @{
-      hasSession = $true
-      playing = $true
-      artist = if ($parts.Count -gt 1) { $parts[0].Trim() } else { $p.ProcessName }
-      title = if ($parts.Count -gt 1) { $parts[1].Trim() } else { $t }
-      source = $p.ProcessName
-      positionSec = 0
-      durationSec = 210
-    } | ConvertTo-Json -Compress
-    exit
-  }
-}
-
-$browsers = @(Get-Process chrome, opera, msedge, brave, firefox -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle })
-foreach ($b in $browsers) {
-  $origTitle = $b.MainWindowTitle.Trim()
-  if ($origTitle -match '(?i)(YouTube|Spotify|SoundCloud|Apple Music|Deezer|Tidal|Bandcamp|Netflix|Twitch|Radio|Lofi|Beats|Music)') {
-    $clean = $origTitle -replace '^\\(\\d+\\)\\s*', ''
-    $clean = $clean -replace '\\s*-\\s*(Google Chrome|Opera GX|Opera|Microsoft\\s*Edge|Brave|Mozilla Firefox)$', ''
-    $isYT = ($clean -match '(?i)-\\s*YouTube')
-    $clean = $clean -replace '\\s*-\\s*YouTube(\\s*Music)?$', ''
-    if ($clean -and $clean -notmatch '^(YouTube|New Tab)$') {
-      @{
-        hasSession = $true
-        playing = $true
-        title = $clean.Trim()
-        artist = if ($isYT) { 'YouTube' } else { $b.ProcessName }
-        source = $b.ProcessName
-        positionSec = 0
-        durationSec = 210
-      } | ConvertTo-Json -Compress
-      exit
-    }
-  }
-}
+} catch {}
 
 Write-Output '{"hasSession":false,"playing":false}'
 `;
-  const res = await runPowerShellEncoded(ps, 3200);
+
+  const res = await runPowerShellEncoded(ps, 2600);
   if (!res.ok || !res.stdout) {
-    if (lastKnownTrack.title) {
-      return {
-        hasSession: true,
-        playing: false,
-        title: lastKnownTrack.title,
-        artist: lastKnownTrack.artist,
-        source: lastKnownTrack.source,
-        thumbnail: lastKnownTrack.thumbnail,
-        durationSec: lastKnownTrack.durationSec,
-        positionSec: lastKnownTrack.positionSec || 0,
-      };
-    }
-    return { hasSession: false, playing: false, title: '', artist: '', thumbnail: '', durationSec: 210, positionSec: 0 };
+    return { hasSession: false, playing: false, title: '', artist: '', thumbnail: '', durationSec: 210 };
   }
+
   try {
     const parsed = JSON.parse(res.stdout);
-    const hasSession = Boolean(parsed.hasSession);
+    if (!parsed.hasSession || !parsed.title) {
+      lastKnownTrack = { title: '', artist: '', source: '', thumbnail: '', durationSec: 210 };
+      return { hasSession: false, playing: false, title: '', artist: '', thumbnail: '', durationSec: 210 };
+    }
+
+    const title = parsed.title;
+    const artist = parsed.artist || parsed.source || 'System Audio';
     const playing = Boolean(parsed.playing);
+    let thumbnail = parsed.thumbnail || '';
+    let durationSec = parsed.durationSec > 10 ? parsed.durationSec : 0;
 
-    if (!hasSession) {
-      if (lastKnownTrack.title) {
-        return {
-          hasSession: true,
-          playing: false,
-          title: lastKnownTrack.title,
-          artist: lastKnownTrack.artist,
-          source: lastKnownTrack.source,
-          thumbnail: lastKnownTrack.thumbnail,
-          durationSec: lastKnownTrack.durationSec,
-          positionSec: lastKnownTrack.positionSec || 0,
-        };
-      }
-      return { hasSession: false, playing: false, title: '', artist: '', thumbnail: '', durationSec: 210, positionSec: 0 };
-    }
-
-    let title = parsed.title || '';
-    let artist = parsed.artist || '';
-    const source = parsed.source || lastKnownTrack.source || 'Speakers';
-    const positionSec = typeof parsed.positionSec === 'number' ? parsed.positionSec : 0;
-    const reportedDuration = typeof parsed.durationSec === 'number' && parsed.durationSec > 0 ? parsed.durationSec : 210;
-
-    if (title) {
+    // Only query external track artwork if Windows GSMTC didn't provide a thumbnail AND it's not Netflix
+    if (!thumbnail || !durationSec) {
       const meta = await resolveTrackMetadata(title, artist);
-      const durationSec = reportedDuration > 10 ? reportedDuration : meta.durationSec;
-      lastKnownTrack = {
-        title,
-        artist,
-        source,
-        thumbnail: meta.thumbnail,
-        durationSec,
-        positionSec,
-      };
-      return {
-        hasSession: true,
-        playing,
-        title,
-        artist,
-        source,
-        thumbnail: meta.thumbnail,
-        durationSec,
-        positionSec,
-      };
+      if (!thumbnail && meta.thumbnail) thumbnail = meta.thumbnail;
+      if (!durationSec) durationSec = meta.durationSec || 210;
     }
 
-    if (lastKnownTrack.title) {
-      return {
-        hasSession: true,
-        playing,
-        title: lastKnownTrack.title,
-        artist: lastKnownTrack.artist,
-        source: lastKnownTrack.source,
-        thumbnail: lastKnownTrack.thumbnail,
-        durationSec: lastKnownTrack.durationSec,
-        positionSec,
-      };
-    }
+    lastKnownTrack = {
+      title,
+      artist,
+      source: parsed.source || 'Speakers',
+      thumbnail,
+      durationSec,
+    };
 
-    return { hasSession: false, playing: false, title: '', artist: '', thumbnail: '', durationSec: 210, positionSec: 0 };
+    return {
+      hasSession: true,
+      playing,
+      title,
+      artist,
+      source: parsed.source || 'Speakers',
+      thumbnail,
+      positionSec: typeof parsed.positionSec === 'number' && parsed.positionSec >= 0 ? parsed.positionSec : undefined,
+      durationSec,
+    };
   } catch (_) {
-    return { hasSession: false, playing: false, title: '', artist: '', thumbnail: '', durationSec: 210, positionSec: 0 };
+    return { hasSession: false, playing: false, title: '', artist: '', thumbnail: '', durationSec: 210 };
   }
 }
 
