@@ -281,6 +281,26 @@ const SvgIcon: React.FC<{ name: string; size?: number; color?: string }> = ({
   color = 'currentColor',
 }) => {
   switch (name) {
+        case 'ember':
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <path
+            d="M12 2C12 2 15.5 6.5 15.5 10C15.5 11.2 15 12.2 14.2 13C15.4 13.5 16.5 14.8 16.5 16.5C16.5 19 14.5 21 12 21C9.5 21 7.5 19 7.5 16.5C7.5 14.5 8.8 13.2 10.2 12.5C9.2 11.8 8.8 10.5 8.8 9.5C8.8 6.5 12 2 12 2Z"
+            fill={color === 'currentColor' ? 'url(#ember-gradient)' : color}
+          />
+          <path
+            d="M12 14.5C11.2 14.5 10.5 15.2 10.5 16C10.5 16.8 11.2 17.5 12 17.5C12.8 17.5 13.5 16.8 13.5 16C13.5 15.2 12.8 14.5 12 14.5Z"
+            fill="#FFF5C2"
+          />
+          <defs>
+            <linearGradient id="ember-gradient" x1="12" y1="2" x2="12" y2="21" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#FFA94D" />
+              <stop offset="60%" stopColor="#FF6B35" />
+              <stop offset="100%" stopColor="#E03131" />
+            </linearGradient>
+          </defs>
+        </svg>
+      );
     case 'wifi':
       return (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -900,6 +920,11 @@ export const HitodamaApp: React.FC = () => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [hasEarnedEmberToday, setHasEarnedEmberToday] = useState<boolean>(() => {
+    return localStorage.getItem('hitodama_last_ember_earned_day') === new Date().toDateString();
+  });
+  const isSoulDull = !hasEarnedEmberToday && rewardedTaskIds.length === 0;
+
   const [unlockedCardIds, setUnlockedCardIds] = useState<string[]>(() => {
     const saved = localStorage.getItem('hitodama_unlocked_cards');
     return saved ? JSON.parse(saved) : ['soul_hitodama', 'voice_charon', 'pers_true_chad'];
@@ -924,9 +949,16 @@ export const HitodamaApp: React.FC = () => {
   const [isBindingTrigger, setIsBindingTrigger] = useState<boolean>(false);
 
   const addEmbers = useCallback((amount: number) => {
+    if (amount <= 0) return;
+    const todayKey = new Date().toDateString();
+    localStorage.setItem('hitodama_last_ember_earned_day', todayKey);
+    setHasEarnedEmberToday(true);
     setEmbers((prev) => {
       const next = prev + amount;
       localStorage.setItem('hitodama_embers', String(next));
+      const api = (window as any).hitodamaAPI;
+      api?.syncEmbersState?.({ count: next, isWaiting: false });
+      api?.setEmbersCount?.(next);
       return next;
     });
   }, []);
@@ -1123,6 +1155,7 @@ export const HitodamaApp: React.FC = () => {
             soundFX.playSuccessChime();
             const label = t.kind === 'BUILD_PAGE' ? 'landing page' : 'task';
             speakAsHitodama(`Your ${label} is ready!`);
+            addEmbers(5);
           }
         }
       }
@@ -1624,11 +1657,9 @@ export const HitodamaApp: React.FC = () => {
 
     addEmbers(15);
     soundFX.playFanfare();
-    setEmberToast({ amount: 15, label: 'Daily Forge Ember Claimed!' });
-    setTimeout(() => setEmberToast(null), 2500);
 
     setHitodamaReply({
-      bold: '🔥 Daily Ember Stoked!',
+      bold: 'Daily Ember Stoked!',
       rest: '+15 Embers added to your soul forge',
     });
     speakAsHitodama('Your daily ember has been stoked. 15 embers added to your soul forge.');
@@ -1677,28 +1708,12 @@ export const HitodamaApp: React.FC = () => {
     };
   }, [handleClaimWaitingEmber, handleGrantCreatorEmbers]);
 
-  // Proactively remind the user whenever an ember is waiting!
-  const hasRemindedEmberTodayRef = useRef<boolean>(false);
+  // Initial sync of embers to tray
   useEffect(() => {
-    if (!isDailyEmberWaiting || hasRemindedEmberTodayRef.current) return;
-
-    const timer = setTimeout(() => {
-      if (isDailyEmberWaiting && !hasRemindedEmberTodayRef.current) {
-        hasRemindedEmberTodayRef.current = true;
-        setContextCard({
-          header: '🔥 Radiant Ember Waiting',
-          title: 'Daily Forge Ember Ready (+15)',
-          subtitle: 'Click here or tap the flame pill to claim your embers',
-        });
-        soundFX.playSparkle();
-        if (voiceFeedbackEnabled) {
-          speakAsHitodama('A glowing ember is waiting for you today. Claim it to feed your soul.');
-        }
-      }
-    }, 2800);
-
-    return () => clearTimeout(timer);
-  }, [isDailyEmberWaiting, voiceFeedbackEnabled, speakAsHitodama]);
+    const api = (window as any).hitodamaAPI;
+    api?.syncEmbersState?.({ count: embers, isWaiting: isEmberWaiting });
+    api?.setEmbersCount?.(embers);
+  }, []);
 
   // Real Live Clipboard History (with LocalStorage Persistence & Universal Sync)
   const [clipboardCategory, setClipboardCategory] = useState<'All' | 'Text' | 'Images' | 'Links'>('All');
@@ -4136,6 +4151,7 @@ export const HitodamaApp: React.FC = () => {
                   setDictationText(cleaned);
                   setDictationState('done');
                   await window.hitodamaAPI?.typeText(cleaned);
+                  addEmbers(2);
                   setTimeout(() => setDictationState('idle'), 1400);
                 } else {
                   setDictationState('idle');
@@ -4194,6 +4210,7 @@ export const HitodamaApp: React.FC = () => {
                 setAskWords([]);
                 setSoulMode('TALKING');
                 if (answer) {
+                  addEmbers(2);
                   setHitodamaReply({ bold: answer });
                   speakAsHitodama(answer);
                   setTimeout(() => {
@@ -4619,6 +4636,7 @@ export const HitodamaApp: React.FC = () => {
                   width={62}
                   height={42}
                   scale={0.96}
+                  isDull={isSoulDull}
                   interactive={true}
                   mode={askNotchPhase === 'thinking' ? 'THINKING' : soulMode === 'TALKING' ? 'TALKING' : 'LISTENING'}
                 />
@@ -4677,6 +4695,7 @@ export const HitodamaApp: React.FC = () => {
                   width={timerAlarmRinging ? 58 : 52}
                   height={timerAlarmRinging ? 48 : 40}
                   scale={timerAlarmRinging ? 0.95 : 0.88}
+                  isDull={isSoulDull}
                   interactive={true}
                   mode={timerAlarmRinging ? 'TALKING' : 'LISTENING'}
                 />
@@ -4749,9 +4768,11 @@ export const HitodamaApp: React.FC = () => {
               <div
                 className="hitodama-soul-underglow"
                 style={{
-                  opacity: isTucked ? 0 : 1,
+                  opacity: isTucked ? 0 : isSoulDull ? 0.35 : 1,
                   background:
-                    soulAnnoyance > 0.35
+                    isSoulDull
+                      ? 'radial-gradient(circle, rgba(100, 116, 139, 0.28) 0%, transparent 72%)'
+                      : soulAnnoyance > 0.35
                       ? 'radial-gradient(circle, rgba(239, 68, 68, 0.48) 0%, transparent 72%)'
                       : isBreathingRelief
                       ? (isVoidEquipped ? 'radial-gradient(circle, rgba(196, 181, 253, 0.52) 0%, transparent 72%)' : 'radial-gradient(circle, rgba(92, 184, 255, 0.52) 0%, transparent 72%)')
@@ -4772,6 +4793,7 @@ export const HitodamaApp: React.FC = () => {
                   height={64}
                   scale={1.13}
                   mode={soulMode}
+                  isDull={isSoulDull}
                   interactive={true}
                   annoyance={soulAnnoyance}
                   isHit={soulIsHit}
@@ -4888,6 +4910,31 @@ export const HitodamaApp: React.FC = () => {
                   })}
                 </div>
                 <div className="companion-header-actions">
+                  <div
+                    className={`companion-header-ember-pill ${isSoulDull ? 'is-dull' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (e.altKey || e.detail === 3) {
+                        handleGrantCreatorEmbers(5000);
+                        return;
+                      }
+                      if (isDailyEmberWaiting) {
+                        handleClaimWaitingEmber();
+                      } else {
+                        setShowCompanionWindow(true);
+                        setCompanionDockTab('soul');
+                      }
+                    }}
+                    title={
+                      isDailyEmberWaiting
+                        ? 'Daily Ember Waiting! Click to claim +15 (Alt+Click for Creator Mode)'
+                        : `${embers.toLocaleString()} Embers (Click to open Soul Deck · Alt+Click for Creator Mode)`
+                    }
+                  >
+                    <SvgIcon name="ember" size={13} color={isSoulDull ? '#94A3B8' : '#FFA94D'} />
+                    <span>{embers.toLocaleString()}</span>
+                  </div>
+
                   {activeTab === 'Wallpaper' && (
                     <button
                       onClick={handlePickLocalWallpapers}
@@ -5335,9 +5382,11 @@ export const HitodamaApp: React.FC = () => {
 
                 {activeTab === 'Today' && (
                   <div
+                    className="today-tab-grid"
                     style={{
                       display: 'grid',
                       gridTemplateColumns: '148px 1.25fr 1fr',
+                      gridTemplateRows: 'minmax(0, 1fr)',
                       gap: '12px',
                       width: '100%',
                       flex: 1,
@@ -5508,9 +5557,8 @@ export const HitodamaApp: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="companion-glass-card" style={{ padding: '14px 16px', justifyContent: 'space-between', overflow: 'visible' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1, overflow: 'visible' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '22px' }}>
+                    <div className="companion-glass-card today-todo-card" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexShrink: 0 }}>
                           <span style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff' }}>Today</span>
                           <div style={{ position: 'relative', width: `${todoRingSize}px`, height: `${todoRingSize}px` }}>
                             <svg width={todoRingSize} height={todoRingSize} style={{ transform: 'rotate(-90deg)' }}>
@@ -5541,8 +5589,8 @@ export const HitodamaApp: React.FC = () => {
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, overflow: 'visible' }}>
-                          {todos.map((todo) => (
+                        <div className="today-todo-scroll-list">
+                        {todos.map((todo) => (
                             <div
                               key={todo.id}
                               onClick={() => handleToggleTodo(todo.id)}
@@ -5572,10 +5620,15 @@ export const HitodamaApp: React.FC = () => {
                                 )}
                               </span>
                               <span className="companion-todo-text">{todo.text}</span>
+                              {!todo.completed && (
+                                <span className="todo-inline-ember-gain">
+                                  <SvgIcon name="ember" size={10} color="#FFA94D" />
+                                  <span>+4</span>
+                                </span>
+                              )}
                             </div>
                           ))}
                         </div>
-                      </div>
 
                       <div className="todo-bottom-input-bar">
                         <span style={{ color: '#71717A', fontSize: '14px', marginLeft: '4px' }}>+</span>
@@ -6420,11 +6473,11 @@ export const HitodamaApp: React.FC = () => {
                   className={`embers-currency-pill ${isEmberWaiting ? 'waiting-spark' : ''}`}
                   title={
                     isDailyEmberWaiting
-                      ? '✨ Daily Ember Waiting! Click to claim +15 Embers'
-                      : '🔥 Embers Forge Balance · Click for Creator Stoke (+5,000)'
+                      ? 'Daily Ember Waiting! Click to claim +15 Embers'
+                      : 'Embers Forge Balance · Click for Creator Stoke (+5,000)'
                   }
                 >
-                  <span className="ember-flame-icon">🔥</span>
+                  <SvgIcon name="ember" size={13} color="#FFA94D" />
                   <span className="ember-count-text">{embers.toLocaleString()}</span>
                   <span className="ember-label">embers</span>
                   {isDailyEmberWaiting && (
@@ -7425,6 +7478,7 @@ export const HitodamaApp: React.FC = () => {
                     setDictationText(finalClean);
                     setDictationState('done');
                     await window.hitodamaAPI?.typeText(finalClean);
+                    addEmbers(2);
                     setTimeout(() => setDictationState('idle'), 1400);
                   }
                 }}
@@ -7542,8 +7596,9 @@ export const HitodamaApp: React.FC = () => {
                       setAskNotchPhase('idle');
                       setSoulMode('TALKING');
                       if (answer) {
-                        setHitodamaReply({ bold: answer });
-                        speakAsHitodama(answer);
+                  addEmbers(2);
+                  setHitodamaReply({ bold: answer });
+                  speakAsHitodama(answer);
                         setTimeout(() => {
                           setSoulMode('LISTENING');
                           setHitodamaReply(null);
@@ -7587,11 +7642,7 @@ export const HitodamaApp: React.FC = () => {
         }}
       />
 
-      {emberToast && (
-        <div key={Date.now()} className="spatial-ember-burst-badge ember-screen-toast">
-          🔥 +{emberToast.amount.toLocaleString()} Embers · {emberToast.label}
-        </div>
-      )}
+      
 
       {/* 6. FLOATING TOP-RIGHT HITODAMA AGENT SQUIRCLE + HOVER TOAST */}
       <AgentTopRightDock

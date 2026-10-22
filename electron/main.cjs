@@ -261,44 +261,47 @@ function createEmberTrayIcon() {
         const isRightEye = y >= 17 && y <= 21 && x >= 18 && x <= 20;
 
         if (isLeftEye || isRightEye) {
-          buf[idx] = 30;
+          buf[idx] = 10;
           buf[idx + 1] = 10;
-          buf[idx + 2] = 5;
+          buf[idx + 2] = 25;
           buf[idx + 3] = 255;
         } else if (dist <= 0.50) {
-          buf[idx] = 255;
-          buf[idx + 1] = 250;
-          buf[idx + 2] = 230;
+          // White-gold core
+          buf[idx] = 200;
+          buf[idx + 1] = 245;
+          buf[idx + 2] = 255;
           buf[idx + 3] = 255;
         } else if (dist <= 0.88) {
-          buf[idx] = 255;
+          // Radiant fiery amber body
+          buf[idx] = 30;
           buf[idx + 1] = 160;
-          buf[idx + 2] = 40;
+          buf[idx + 2] = 255;
           buf[idx + 3] = 255;
         } else {
+          // Fiery crimson/vermilion flame rim
           const alpha = Math.max(0, Math.min(255, Math.round((1.25 - dist) * 4 * 240)));
-          buf[idx] = 255;
-          buf[idx + 1] = 65;
-          buf[idx + 2] = 20;
+          buf[idx] = 20;
+          buf[idx + 1] = 70;
+          buf[idx + 2] = 255;
           buf[idx + 3] = alpha;
         }
       }
     }
   }
 
-  // Drifting golden sparks
+  // Drifting golden sparks (BGRA: Blue, Green, Red, Alpha)
   const sparks = [
-    [15, 2, 255, 225, 90, 240],
-    [12, 4, 255, 180, 50, 220],
-    [19, 5, 255, 195, 60, 220],
-    [14, 6, 255, 240, 140, 255],
-    [17, 3, 255, 210, 80, 200],
+    [15, 2, 40, 225, 255, 240],
+    [12, 4, 30, 180, 255, 220],
+    [19, 5, 40, 195, 255, 220],
+    [14, 6, 120, 240, 255, 255],
+    [17, 3, 50, 210, 255, 200],
   ];
-  for (const [sx, sy, r, g, b, a] of sparks) {
+  for (const [sx, sy, b, g, r, a] of sparks) {
     const sidx = (sy * size + sx) * 4;
-    buf[sidx] = r;
+    buf[sidx] = b;
     buf[sidx + 1] = g;
-    buf[sidx + 2] = b;
+    buf[sidx + 2] = r;
     buf[sidx + 3] = a;
   }
 
@@ -328,7 +331,7 @@ function refreshTrayIconAndTooltip() {
   tray.setImage(icon);
 
   if (emberState.isWaiting) {
-    tray.setToolTip(`Hito · 🔥 Daily Ember Waiting! (${emberState.count.toLocaleString()} Embers)`);
+    tray.setToolTip(`Hito · Daily Ember Waiting! (${emberState.count.toLocaleString()} Embers)`);
   } else {
     tray.setToolTip(`Hito · ${emberState.count.toLocaleString()} Embers · Give your computer a soul`);
   }
@@ -338,8 +341,8 @@ function updateTrayMenu() {
   if (!tray) return;
 
   const emberHeaderLabel = emberState.isWaiting
-    ? `🔥 Embers: ${emberState.count.toLocaleString()} · ✨ Daily Ember Waiting!`
-    : `🔥 Embers: ${emberState.count.toLocaleString()} Available`;
+    ? `Embers: ${emberState.count.toLocaleString()} · Daily Ember Waiting!`
+    : `Embers: ${emberState.count.toLocaleString()} Available`;
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -347,8 +350,8 @@ function updateTrayMenu() {
       submenu: [
         {
           label: emberState.isWaiting
-            ? '✨ Claim Daily Waiting Ember (+15)'
-            : '✓ Daily Ember Claimed (Come back tomorrow)',
+            ? 'Claim Daily Waiting Ember (+15)'
+            : 'Daily Ember Claimed (Come back tomorrow)',
           enabled: emberState.isWaiting,
           click: () => {
             if (mainWindow) {
@@ -359,7 +362,7 @@ function updateTrayMenu() {
           },
         },
         {
-          label: '⚡ Creator Mode: Stoke +5,000 Embers (Test)',
+          label: 'Creator Mode: Stoke +5,000 Embers (Test)',
           click: () => {
             if (mainWindow) {
               mainWindow.webContents.send('grant-creator-embers', 5000);
@@ -368,7 +371,7 @@ function updateTrayMenu() {
         },
         { type: 'separator' },
         {
-          label: `🎨 Tray Design: ${
+          label: `Tray Design: ${
             currentTrayTheme === 'ember'
               ? 'Ember Flame (Active)'
               : currentTrayTheme === 'hito'
@@ -409,7 +412,7 @@ function updateTrayMenu() {
           ],
         },
         {
-          label: '🎴 View Soul Deck & Card Unlocks...',
+          label: 'View Soul Deck & Card Unlocks...',
           click: () => {
             if (mainWindow) {
               mainWindow.show();
@@ -927,6 +930,14 @@ ipcMain.handle('update-shortcuts', (_event, shortcuts) => {
     updateTrayMenu();
   }
   return { success: true, shortcuts: activeShortcuts };
+});
+
+ipcMain.on('set-embers-count', (_event, count) => {
+  if (typeof count === 'number') {
+    emberState.count = count;
+    refreshTrayIconAndTooltip();
+    updateTrayMenu();
+  }
 });
 
 ipcMain.handle('update-embers-state', (_event, payload) => {

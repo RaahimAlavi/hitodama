@@ -3074,23 +3074,18 @@ button:focus-visible,
    GLOWING BLUE DESKTOP PERIMETER AURA (Screenshot 2026-10-15 221354.jpg)
    ========================================================================== */
 .hitodama-screen-edge-glow {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
+  display: none !important;
+  opacity: 0 !important;
+  box-shadow: none !important;
+  animation: none !important;
   pointer-events: none !important;
-  z-index: 9998;
-  opacity: 0;
-  box-shadow:
-    inset 0 0 38px 6px rgba(92, 184, 255, 0.58),
-    inset 0 0 110px 24px rgba(56, 189, 248, 0.24),
-    inset 0 0 4px 1.5px rgba(186, 230, 253, 0.75);
-  transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .hitodama-screen-edge-glow.is-active {
-  opacity: 1;
-  animation: hitodama-border-breathe 2.4s infinite ease-in-out alternate;
+  display: none !important;
+  opacity: 0 !important;
+  box-shadow: none !important;
+  animation: none !important;
 }
 
 @keyframes hitodama-border-breathe {
@@ -3919,4 +3914,108 @@ button:focus-visible,
   background: rgba(56, 189, 248, 0.22);
   border-color: rgba(56, 189, 248, 0.5);
   color: #FFFFFF;
-}
+}
+
+/* ==========================================================================
+   TODAY TAB & EMBERS FORGE REFINEMENTS
+   ========================================================================== */
+.today-tab-grid {
+  display: grid;
+  grid-template-columns: 148px 1.25fr 1fr;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 12px;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.today-todo-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.today-todo-scroll-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  max-height: 248px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.today-todo-scroll-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.today-todo-scroll-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.today-todo-scroll-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+}
+
+.companion-header-ember-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 7px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, rgba(255, 140, 0, 0.14), rgba(220, 38, 38, 0.08));
+  border: 1px solid rgba(255, 150, 50, 0.32);
+  color: #ffd8a8;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 10px rgba(255, 115, 0, 0.14);
+}
+
+.companion-header-ember-pill:hover {
+  background: linear-gradient(135deg, rgba(255, 140, 0, 0.22), rgba(220, 38, 38, 0.16));
+  border-color: rgba(255, 170, 70, 0.6);
+  color: #fff3bf;
+  transform: translateY(-0.5px);
+  box-shadow: 0 0 16px rgba(255, 120, 0, 0.28);
+}
+
+.companion-header-ember-pill.is-dull {
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.22);
+  color: #94a3b8;
+  box-shadow: none;
+}
+
+.companion-header-ember-pill.is-dull:hover {
+  background: rgba(255, 150, 50, 0.12);
+  border-color: rgba(255, 150, 50, 0.38);
+  color: #ffd8a8;
+  box-shadow: 0 0 10px rgba(255, 115, 0, 0.14);
+}
+
+.companion-header-ember-pill svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+.todo-inline-ember-gain {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: #f59e0b;
+  opacity: 0.75;
+  font-weight: 600;
+  margin-left: auto;
+  padding-left: 6px;
+}

@@ -169,6 +169,12 @@ contextBridge.exposeInMainWorld('hitodamaAPI', {
   syncToNotion: (payload) => ipcRenderer.invoke('sync-to-notion', payload),
   playSpotify: (query, targetType) => ipcRenderer.invoke('play-spotify', query, targetType),
   syncEmbersState: (data) => ipcRenderer.invoke('update-embers-state', data),
+  setEmbersCount: (count) => {
+    if (typeof count === 'number') {
+      ipcRenderer.send('set-embers-count', count);
+      ipcRenderer.invoke('update-embers-state', { count });
+    }
+  },
   onClaimDailyEmber: (callback) => {
     const listener = () => callback();
     ipcRenderer.on('claim-daily-ember', listener);

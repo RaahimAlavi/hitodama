@@ -13,8 +13,9 @@ export interface SoulCanvasProps {
   annoyance?: number;
   isHit?: boolean;
   isBreathingRelief?: boolean;
+  isDull?: boolean;
   lookOverride?: { x: number; y: number } | null;
-  expression?: 'NORMAL' | 'PEEKING' | 'EXCITED' | 'POINTING' | 'HAPPY' | 'WINK' | 'YAWNING';
+  expression?: 'NORMAL' | 'PEEKING' | 'EXCITED' | 'POINTING' | 'HAPPY' | 'WINK' | 'YAWNING' | 'SAD';
   onClick?: (e?: any) => void;
   className?: string;
   style?: React.CSSProperties;
@@ -42,6 +43,7 @@ export const SoulCanvas: React.FC<SoulCanvasProps> = ({
   annoyance = 0,
   isHit = false,
   isBreathingRelief = false,
+  isDull = false,
   lookOverride = null,
   expression = 'NORMAL',
   onClick,
@@ -61,6 +63,9 @@ export const SoulCanvas: React.FC<SoulCanvasProps> = ({
 
   const isBreathingReliefRef = useRef(isBreathingRelief);
   isBreathingReliefRef.current = isBreathingRelief;
+
+  const isDullRef = useRef(isDull);
+  isDullRef.current = isDull;
 
   const lookOverrideRef = useRef(lookOverride);
   lookOverrideRef.current = lookOverride;
@@ -224,9 +229,11 @@ export const SoulCanvas: React.FC<SoulCanvasProps> = ({
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
 
-      // Speed & energy scale by mode: lively organic fire dance
+      const dull = Boolean(isDullRef.current) && mode !== 'TALKING' && expressionRef.current !== 'HAPPY';
+
+      // Speed & energy scale by mode: lively organic fire dance (slow & dim when dull)
       const speedMult =
-        mode === 'TALKING' ? 1.45 : mode === 'THINKING' ? 1.25 : mode === 'MUTED' ? 0.6 : 1.0;
+        dull ? 0.42 : mode === 'TALKING' ? 1.45 : mode === 'THINKING' ? 1.25 : mode === 'MUTED' ? 0.6 : 1.0;
       time += dt * (2.1 * speedMult);
 
       // Smooth annoyance interpolation
@@ -274,23 +281,34 @@ export const SoulCanvas: React.FC<SoulCanvasProps> = ({
           : Math.cos(((breathProg - 0.38) / 0.62) * (Math.PI / 2)) * 0.18;
       }
 
-      // Interpolate colors based on annoyance (progressively enraged blazing crimson)
+      // Dull slate-blue palette when unfed and waiting for embers
+      const dullMidRgb: [number, number, number] = [71, 85, 105];
+      const dullGlowRgb: [number, number, number] = [30, 41, 59];
+      const dullCoreRgb: [number, number, number] = [148, 163, 184];
+
+      // Interpolate colors based on annoyance (progressively enraged blazing crimson) or dull slate
       const annT = Math.min(1, currentAnnoyance);
-      const curMid: [number, number, number] = [
-        Math.round(baseMidRgb[0] + (angryMidRgb[0] - baseMidRgb[0]) * annT),
-        Math.round(baseMidRgb[1] + (angryMidRgb[1] - baseMidRgb[1]) * annT),
-        Math.round(baseMidRgb[2] + (angryMidRgb[2] - baseMidRgb[2]) * annT),
-      ];
-      const curGlow: [number, number, number] = [
-        Math.round(baseGlowRgb[0] + (angryGlowRgb[0] - baseGlowRgb[0]) * annT),
-        Math.round(baseGlowRgb[1] + (angryGlowRgb[1] - baseGlowRgb[1]) * annT),
-        Math.round(baseGlowRgb[2] + (angryGlowRgb[2] - baseGlowRgb[2]) * annT),
-      ];
-      const curCore: [number, number, number] = [
-        Math.round(baseCoreRgb[0] + (angryCoreRgb[0] - baseCoreRgb[0]) * annT),
-        Math.round(baseCoreRgb[1] + (angryCoreRgb[1] - baseCoreRgb[1]) * annT),
-        Math.round(baseCoreRgb[2] + (angryCoreRgb[2] - baseCoreRgb[2]) * annT),
-      ];
+      const curMid: [number, number, number] = dull
+        ? dullMidRgb
+        : [
+            Math.round(baseMidRgb[0] + (angryMidRgb[0] - baseMidRgb[0]) * annT),
+            Math.round(baseMidRgb[1] + (angryMidRgb[1] - baseMidRgb[1]) * annT),
+            Math.round(baseMidRgb[2] + (angryMidRgb[2] - baseMidRgb[2]) * annT),
+          ];
+      const curGlow: [number, number, number] = dull
+        ? dullGlowRgb
+        : [
+            Math.round(baseGlowRgb[0] + (angryGlowRgb[0] - baseGlowRgb[0]) * annT),
+            Math.round(baseGlowRgb[1] + (angryGlowRgb[1] - baseGlowRgb[1]) * annT),
+            Math.round(baseGlowRgb[2] + (angryGlowRgb[2] - baseGlowRgb[2]) * annT),
+          ];
+      const curCore: [number, number, number] = dull
+        ? dullCoreRgb
+        : [
+            Math.round(baseCoreRgb[0] + (angryCoreRgb[0] - baseCoreRgb[0]) * annT),
+            Math.round(baseCoreRgb[1] + (angryCoreRgb[1] - baseCoreRgb[1]) * annT),
+            Math.round(baseCoreRgb[2] + (angryCoreRgb[2] - baseCoreRgb[2]) * annT),
+          ];
 
       const primaryColor = `rgb(${curMid[0]}, ${curMid[1]}, ${curMid[2]})`;
       const secondaryColor = `rgb(${curGlow[0]}, ${curGlow[1]}, ${curGlow[2]})`;
@@ -315,7 +333,7 @@ export const SoulCanvas: React.FC<SoulCanvasProps> = ({
       const swayX = -currentGaze.x * 4.5 * scale;
 
       // Base radius calculation: calibrated for perfectly balanced character proportions
-      const rawBaseR = Math.min(width, height) * 0.24 * scale;
+      const rawBaseR = Math.min(width, height) * 0.24 * scale * (dull ? 0.85 : 1);
       const baseR = rawBaseR * (1 + breathExpansion) * (mode === 'TALKING' ? 0.96 + 0.08 * talkPulse : 1);
       const flameH =
         baseR *
@@ -562,6 +580,43 @@ export const SoulCanvas: React.FC<SoulCanvasProps> = ({
             ctx.fill();
           }
         }
+      } else if (dull || expressionRef.current === 'SAD') {
+        // SAD DROOPY EYES WHEN UNFED & WAITING FOR EMBERS
+        ctx.save();
+        // Left eye: droopy oval with downward/outward slanted lid
+        ctx.translate(eyeLX, eyeY + 1.0 * flameSizeScale);
+        ctx.rotate(0.22);
+        ctx.fillStyle = eyeColor;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, Math.max(0.5, 2.1 * flameSizeScale), 2.2 * flameSizeScale, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = secondaryColor;
+        ctx.beginPath();
+        ctx.rect(-3 * flameSizeScale, -3 * flameSizeScale, 6 * flameSizeScale, 2.6 * flameSizeScale);
+        ctx.fill();
+        ctx.restore();
+
+        // Right eye: droopy oval with downward/outward slanted lid
+        ctx.save();
+        ctx.translate(eyeRX, eyeY + 1.0 * flameSizeScale);
+        ctx.rotate(-0.22);
+        ctx.fillStyle = eyeColor;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, Math.max(0.5, 2.1 * flameSizeScale), 2.2 * flameSizeScale, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = secondaryColor;
+        ctx.beginPath();
+        ctx.rect(-3 * flameSizeScale, -3 * flameSizeScale, 6 * flameSizeScale, 2.6 * flameSizeScale);
+        ctx.fill();
+        ctx.restore();
+
+        // Subtle droopy pout / sad mouth
+        ctx.strokeStyle = eyeColor;
+        ctx.lineWidth = Math.max(0.6, 1.4 * flameSizeScale);
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(cx + lookX * 0.2, eyeY + 4.8 * flameSizeScale, 2.4 * flameSizeScale, 1.25 * Math.PI, 1.75 * Math.PI);
+        ctx.stroke();
       } else {
         // ANGRY, CALM, PEEKING, EXCITED, OR POINTING EYES
         const expr = expressionRef.current;
@@ -652,7 +707,7 @@ export const SoulCanvas: React.FC<SoulCanvasProps> = ({
 
     animId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animId);
-  }, [soul, width, height, scale, mode]);
+  }, [soul, width, height, scale, mode, isDull]);
 
   return (
     <canvas
